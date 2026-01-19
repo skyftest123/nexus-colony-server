@@ -1,26 +1,17 @@
-// ========================================
-// NEXUS COLONY - MULTIPLAYER IDLE GAME
-// Server.js - Node.js + WebSocket Server
-// ERWEITERTE VERSION MIT ROLLEN, EREIGNISSEN & KOOP-MECHANIKEN
-// ========================================
-
 const WebSocket = require('ws');
 const http = require('http');
-const fs = require('fs');
-const path = require('path');
 
 const PORT = process.env.PORT || 3000;
-const TICK_INTERVAL = 5000; // 5 Sekunden pro Tick
+const TICK_INTERVAL = 5000;
 
 // ========================================
 // LOBBY VERWALTUNG
 // ========================================
-const lobbies = new Map(); // lobbyCode -> Lobby
+const lobbies = new Map();
 
 // ========================================
-// DESIGN-ENTSCHEIDUNG: ROLLEN-SYSTEM
+// ROLLEN
 // ========================================
-
 const ROLES = {
   engineer: {
     name: 'Ingenieur',
@@ -68,6 +59,9 @@ const ROLES = {
   }
 };
 
+// ========================================
+// GEBÄUDE
+// ========================================
 const BUILDINGS = {
   generator: {
     name: 'Generator',
@@ -117,6 +111,9 @@ const BUILDINGS = {
   }
 };
 
+// ========================================
+// EVENTS
+// ========================================
 const EVENTS = {
   stromausfall: {
     name: 'Stromausfall',
@@ -134,6 +131,7 @@ const EVENTS = {
     duration: 2,
     requiresVote: false
   },
+
   hungersnot: {
     name: 'Hungersnot',
     description: 'Ernteausfälle bedrohen die Nahrungsversorgung!',
@@ -151,6 +149,7 @@ const EVENTS = {
     requiresVote: false,
     canBeMitigated: true
   },
+
   aufstand: {
     name: 'Aufstand',
     description: 'Die Bevölkerung rebelliert gegen die Führung!',
@@ -169,6 +168,7 @@ const EVENTS = {
     requiresVote: true,
     voteOptions: ['gewalt', 'verhandlung', 'zugestaendnisse']
   },
+
   technologiedurchbruch: {
     name: 'Technologiedurchbruch',
     description: 'Forscher haben eine wichtige Entdeckung gemacht!',
@@ -180,6 +180,7 @@ const EVENTS = {
     duration: 1,
     requiresVote: false
   },
+
   uebervoelkerung: {
     name: 'Übervölkerung',
     description: 'Zu viele Menschen, zu wenig Raum!',
@@ -199,6 +200,7 @@ const EVENTS = {
     requiresVote: false,
     preventBuilding: 'wohnmodul'
   },
+
   maschinenverschleiss: {
     name: 'Maschinenverschleiß',
     description: 'Alte Anlagen benötigen dringend Wartung!',
@@ -215,6 +217,9 @@ const EVENTS = {
   }
 };
 
+// ========================================
+// FORSCHUNG
+// ========================================
 const RESEARCH = {
   effizienz_1: {
     name: 'Effizienztechnologie I',
@@ -256,7 +261,6 @@ const RESEARCH = {
 // ========================================
 // LOBBY KLASSE
 // ========================================
-
 class Lobby {
   constructor(code) {
     this.code = code;
@@ -269,7 +273,6 @@ class Lobby {
     this.delayedEffects = [];
     this.startTicking();
   }
-
   createInitialState() {
     return {
       ressourcen: {
@@ -334,7 +337,7 @@ class Lobby {
     if (player) {
       console.log(`Spieler ${player.name} hat Lobby ${this.code} verlassen`);
       this.players.delete(playerId);
-      
+
       if (this.players.size === 0) {
         this.stopTicking();
         return true;
@@ -401,15 +404,15 @@ class Lobby {
 
           this.players.forEach(player => {
             const role = ROLES[player.role];
-            
+
             if (resource === 'energie' && role.bonuses.energieProduction) {
               finalAmount *= role.bonuses.energieProduction;
             }
-            
+
             if (resource === 'nahrung' && role.bonuses.nahrungProduction) {
               finalAmount *= role.bonuses.nahrungProduction;
             }
-            
+
             if (role.bonuses.resourceEfficiency) {
               finalAmount *= role.bonuses.resourceEfficiency;
             }
@@ -483,7 +486,7 @@ class Lobby {
       const hungerTote = Math.floor(population * 0.05);
       state.ressourcen.bevoelkerung = Math.max(5, population - hungerTote);
       state.ressourcen.stabilitaet -= 15;
-      
+
       this.broadcast({
         type: 'notification',
         severity: 'critical',
@@ -493,7 +496,7 @@ class Lobby {
 
     if (state.ressourcen.nahrung > 50 && state.ressourcen.stabilitaet > 40) {
       let growthRate = 0.02;
-      
+
       this.players.forEach(player => {
         const role = ROLES[player.role];
         if (role.bonuses.populationGrowth) {
@@ -512,7 +515,7 @@ class Lobby {
 
   updateStability() {
     const state = this.gameState;
-    
+
     state.ressourcen.stabilitaet -= 0.5 * state.difficultyMultiplier;
 
     this.players.forEach(player => {
@@ -551,18 +554,18 @@ class Lobby {
 
   updateConstruction() {
     const state = this.gameState;
-    
+
     state.bauWarteschlange = state.bauWarteschlange.filter(bau => {
       if (state.currentTick >= bau.fertigTick) {
         state.gebaeude[bau.typ] = (state.gebaeude[bau.typ] || 0) + 1;
         state.statistics.buildingsBuilt++;
-        
+
         this.broadcast({
           type: 'notification',
           severity: 'success',
           message: `${BUILDINGS[bau.typ].name} wurde fertiggestellt!`
         });
-        
+
         return false;
       }
       return true;
@@ -571,18 +574,18 @@ class Lobby {
 
   updateResearch() {
     const state = this.gameState;
-    
+
     if (state.activeResearch) {
       if (state.currentTick >= state.activeResearch.completionTick) {
         const researchType = state.activeResearch.type;
         state.completedResearch.push(researchType);
-        
+
         this.broadcast({
           type: 'notification',
           severity: 'success',
           message: `Forschung "${RESEARCH[researchType].name}" abgeschlossen!`
         });
-        
+
         state.activeResearch = null;
       }
     }
@@ -590,7 +593,7 @@ class Lobby {
 
   checkForEvents() {
     const state = this.gameState;
-    
+
     if (state.activeEvent && state.activeEvent.duration > 0) {
       return;
     }
@@ -661,7 +664,7 @@ class Lobby {
 
   triggerEvent(eventKey, event) {
     const state = this.gameState;
-    
+
     state.activeEvent = {
       key: eventKey,
       ...event,
@@ -705,22 +708,22 @@ class Lobby {
 
   updateActiveEvent() {
     const state = this.gameState;
-    
+
     if (state.activeEvent && state.activeEvent.duration > 0) {
       state.activeEvent.duration--;
-      
+
       if (state.activeEvent.duration === 0) {
         this.broadcast({
           type: 'notification',
           severity: 'info',
           message: `Event "${state.activeEvent.name}" ist vorbei.`
         });
-        
+
         state.eventHistory.push({
           name: state.activeEvent.name,
           tick: state.currentTick
         });
-        
+
         state.activeEvent = null;
       }
     }
@@ -728,7 +731,7 @@ class Lobby {
 
   applyDelayedEffects() {
     const state = this.gameState;
-    
+
     this.delayedEffects = this.delayedEffects.filter(delayed => {
       if (state.currentTick >= delayed.executeTick) {
         for (const [resource, change] of Object.entries(delayed.effects)) {
@@ -736,7 +739,7 @@ class Lobby {
             state.ressourcen[resource] = (state.ressourcen[resource] || 0) + change;
           }
         }
-        
+
         if (delayed.effects.message) {
           this.broadcast({
             type: 'notification',
@@ -744,7 +747,7 @@ class Lobby {
             message: `⏰ Verzögerter Effekt: ${delayed.effects.message}`
           });
         }
-        
+
         return false;
       }
       return true;
@@ -754,7 +757,7 @@ class Lobby {
   startVote(voteData) {
     const voteId = 'vote_' + Date.now();
     const state = this.gameState;
-    
+
     this.activeVotes.set(voteId, {
       ...voteData,
       votes: new Map(),
@@ -795,7 +798,7 @@ class Lobby {
       tally[choice] = (tally[choice] || 0) + 1;
     });
 
-    const winner = Object.keys(tally).reduce((a, b) => 
+    const winner = Object.keys(tally).reduce((a, b) =>
       tally[a] > tally[b] ? a : b
     );
 
@@ -815,7 +818,7 @@ class Lobby {
 
   applyEventResolution(eventKey, choice) {
     const state = this.gameState;
-    
+
     if (eventKey === 'aufstand') {
       if (choice === 'gewalt') {
         state.ressourcen.bevoelkerung -= 10;
@@ -842,14 +845,14 @@ class Lobby {
           message: 'Zugeständnisse haben die Lage beruhigt.'
         });
       }
-      
+
       state.activeEvent = null;
     }
   }
 
   updateDifficulty() {
     const state = this.gameState;
-    
+
     const tickProgress = state.currentTick / 720;
     state.difficultyMultiplier = 1.0 + (tickProgress * 0.5);
 
@@ -872,26 +875,70 @@ class Lobby {
     const ticksSinceLastUse = state.currentTick - player.specialActionLastUsed;
     if (ticksSinceLastUse < cooldown) {
       const remaining = cooldown - ticksSinceLastUse;
-      return { 
-        success: false, 
-        message: `Noch ${remaining} Ticks Cooldown`    };
+      return {
+        success: false,
+        message: `Noch ${remaining} Ticks Cooldown`
+      };
+    }
+
+    let resultMessage = '';
+
+    switch (role.specialAction) {
+      case 'repair':
+        state.ressourcen.stabilitaet = Math.min(100, state.ressourcen.stabilitaet + 15);
+        state.ressourcen.energie += 20;
+        resultMessage = 'Der Ingenieur hat Systeme repariert (+15 Stabilität, +20 Energie).';
+        break;
+
+      case 'research':
+        state.ressourcen.forschung += 12;
+        resultMessage = 'Der Forscher hat einen Forschungsschub ausgelöst (+12 Forschung).';
+        break;
+
+      case 'optimize':
+        state.ressourcen.nahrung += 25;
+        state.ressourcen.energie += 10;
+        resultMessage = 'Der Logistiker hat Ressourcen optimiert (+25 Nahrung, +10 Energie).';
+        break;
+
+      case 'negotiate':
+        state.ressourcen.stabilitaet = Math.min(100, state.ressourcen.stabilitaet + 20);
+        state.ressourcen.bevoelkerung += 2;
+        resultMessage = 'Der Diplomat hat erfolgreich verhandelt (+20 Stabilität, +2 Bevölkerung).';
+        break;
+
+      default:
+        return { success: false, message: 'Unbekannte Spezialaktion' };
+    }
+
+    player.specialActionLastUsed = state.currentTick;
+
+    this.broadcast({
+      type: 'notification',
+      severity: 'info',
+      message: `🔸 ${player.name} (${role.name}) hat seine Spezialaktion eingesetzt: ${resultMessage}`
+    });
+
+    return { success: true, message: resultMessage };
   }
 
-  // ================================
-  // STATE BROADCAST & WS HELPERS
-  // ================================
-    broadcast(data)
+  // ========================================
+  // BROADCASTING
+  // ========================================
+  broadcast(data) {
     this.players.forEach(player => {
-      if (player.ws && player.ws.readyState === player.ws.OPEN) {
+      if (player.ws && player.ws.readyState === WebSocket.OPEN) {
         player.ws.send(JSON.stringify(data));
       }
     });
+  }
 
   broadcastState() {
-    const stateCopy = { ...this.gameState };
+    const stateCopy = JSON.parse(JSON.stringify(this.gameState));
+
     this.players.forEach(player => {
       const ws = player.ws;
-      if (ws && ws.readyState === ws.OPEN) {
+      if (ws && ws.readyState === WebSocket.OPEN) {
         ws.send(JSON.stringify({
           type: 'update_state',
           state: stateCopy,
@@ -903,6 +950,26 @@ class Lobby {
         }));
       }
     });
+  }
+
+  checkGameOver() {
+    const state = this.gameState;
+
+    if (state.ressourcen.bevoelkerung <= 0) {
+      this.broadcast({
+        type: 'game_over',
+        reason: 'Die gesamte Bevölkerung ist gestorben.'
+      });
+      this.stopTicking();
+    }
+
+    if (state.ressourcen.stabilitaet <= 0) {
+      this.broadcast({
+        type: 'game_over',
+        reason: 'Die Kolonie ist im Chaos versunken.'
+      });
+      this.stopTicking();
+    }
   }
 }
 
@@ -940,26 +1007,31 @@ wss.on('connection', (ws) => {
   });
 });
 
-// ================================
+// ========================================
 // MESSAGE HANDLER
-// ================================
+// ========================================
 function handleMessage(ws, data) {
-  switch(data.type) {
+  switch (data.type) {
     case 'create_lobby':
       handleCreateLobby(ws, data);
       break;
+
     case 'join_lobby':
       handleJoinLobby(ws, data);
       break;
+
     case 'leave_lobby':
       handleLeaveLobby(ws);
       break;
+
     case 'special_action':
       handleSpecialAction(ws, data);
       break;
+
     case 'cast_vote':
       handleCastVote(ws, data);
       break;
+
     default:
       ws.send(JSON.stringify({
         type: 'error',
@@ -968,9 +1040,13 @@ function handleMessage(ws, data) {
   }
 }
 
-// ================================
+// ========================================
 // LOBBY HANDLER
-// ================================
+// ========================================
+function generateLobbyCode() {
+  return Math.random().toString(36).substring(2, 7).toUpperCase();
+}
+
 function handleCreateLobby(ws, data) {
   const lobbyCode = generateLobbyCode();
   const lobby = new Lobby(lobbyCode);
@@ -1005,33 +1081,29 @@ function handleJoinLobby(ws, data) {
   ws.lobbyId = data.lobbyId;
   ws.playerId = data.playerId;
 
-  ws.send(JSON.stringify({ type: 'lobby_joined', lobbyId: data.lobbyId }));
-  console.log(`Spieler ${data.playerName} ist Lobby ${data.lobbyId} beigetreten`);
+  ws.send(JSON.stringify({
+    type: 'lobby_joined',
+    lobbyId: data.lobbyId
+  }));
 }
 
 function handleLeaveLobby(ws) {
-  if (!ws.lobbyId || !lobbies.has(ws.lobbyId)) return;
+  if (!ws.lobbyId) return;
 
   const lobby = lobbies.get(ws.lobbyId);
+  if (!lobby) return;
+
   lobby.removePlayer(ws.playerId);
 
-  if (lobby.players.size === 0) {
-    lobbies.delete(ws.lobbyId);
-  }
-
-  ws.lobbyId = null;
-  ws.playerId = null;
-
-  ws.send(JSON.stringify({ type: 'left_lobby' }));
+  ws.send(JSON.stringify({
+    type: 'lobby_left'
+  }));
 }
 
-// ================================
-// SPEZIALAKTION & VOTES
-// ================================
 function handleSpecialAction(ws, data) {
-  if (!ws.lobbyId || !lobbies.has(ws.lobbyId)) return;
-
   const lobby = lobbies.get(ws.lobbyId);
+  if (!lobby) return;
+
   const result = lobby.useSpecialAction(ws.playerId, data);
   ws.send(JSON.stringify({
     type: 'special_action_result',
@@ -1041,31 +1113,16 @@ function handleSpecialAction(ws, data) {
 }
 
 function handleCastVote(ws, data) {
-  if (!ws.lobbyId || !lobbies.has(ws.lobbyId)) return;
-
   const lobby = lobbies.get(ws.lobbyId);
+  if (!lobby) return;
+
   const result = lobby.castVote(data.voteId, ws.playerId, data.choice);
-  ws.send(JSON.stringify({
-    type: 'vote_cast',
-    success: result.success,
-    message: result.message
-  }));
+  ws.send(JSON.stringify(result));
 }
 
-// ================================
-// HELPER
-// ================================
-function generateLobbyCode() {
-  return Math.random().toString(36).substring(2, 8).toUpperCase();
-}
-
-// ================================
+// ========================================
 // SERVER START
-// ================================
+// ========================================
 server.listen(PORT, () => {
-  console.log("===========================================");
-  console.log("NEXUS COLONY SERVER - ERWEITERTE VERSION");
-  console.log("Server läuft auf Port", PORT);
-  console.log("Features: Rollen, Events, Voting, Forschung");
-  console.log("===========================================");
+  console.log(`Server läuft auf Port ${PORT}`);
 });
