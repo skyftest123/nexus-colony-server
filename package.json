@@ -1,0 +1,12 @@
+{
+  "name": "nexus-colony-server",
+  "version": "1.0.0",
+  "description": "Multiplayer Idle Game Server",
+  "main": "nexus_server.js",
+  "scripts": {
+    "start": "node nexus_server.js"
+  },
+  "dependencies": {
+    "ws": "^8.16.0"
+  }
+}
