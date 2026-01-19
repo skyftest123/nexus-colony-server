@@ -880,13 +880,12 @@ class Lobby {
   // ================================
   // STATE BROADCAST & WS HELPERS
   // ================================
-    broadcast(data) {
+    broadcast(data)
     this.players.forEach(player => {
       if (player.ws && player.ws.readyState === player.ws.OPEN) {
         player.ws.send(JSON.stringify(data));
       }
     });
-  }
 
   broadcastState() {
     const stateCopy = { ...this.gameState };
