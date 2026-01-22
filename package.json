@@ -7,6 +7,8 @@
     "start": "node nexus_server.js"
   },
   "dependencies": {
-    "ws": "^8.16.0"
+    "ws": "^8.13.0",
+    "redis": "^4.7.0"
   }
 }
+
