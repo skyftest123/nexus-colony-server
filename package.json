@@ -1,14 +1,21 @@
 {
   "name": "nexus-colony-server",
   "version": "1.0.0",
-  "description": "Multiplayer Idle Game Server",
+  "description": "Nexus Colony – Multiplayer Idle/Build Strategy Server",
   "main": "nexus_server.js",
+  "type": "commonjs",
   "scripts": {
-    "start": "node nexus_server.js"
+    "start": "node nexus_server.js",
+    "dev": "nodemon nexus_server.js"
+  },
+  "engines": {
+    "node": ">=18"
   },
   "dependencies": {
-    "ws": "^8.13.0",
-    "redis": "^4.7.0"
+    "ws": "^8.16.0",
+    "redis": "^4.6.13"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.3"
   }
 }
-
