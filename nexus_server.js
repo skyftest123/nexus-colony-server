@@ -1097,7 +1097,16 @@ class Lobby {
 // ========================================
 // WEBSOCKET SERVER
 // ========================================
-const server = http.createServer();
+const server = http.createServer((req, res) => {
+  if (req.url === "/" || req.url === "/health") {
+    res.writeHead(200, { "Content-Type": "text/plain; charset=utf-8" });
+    res.end("OK");
+    return;
+  }
+  res.writeHead(404, { "Content-Type": "text/plain; charset=utf-8" });
+  res.end("Not Found");
+});
+
 const wss = new WebSocket.Server({ server });
 
 wss.on("connection", (ws) => {
@@ -1729,3 +1738,6 @@ function handleSkillRespec(ws) {
   ws.send(JSON.stringify({ type: "notification", severity: "warning", message: "Respec ist deaktiviert (Skills sind permanent)." }));
 }
 
+server.listen(PORT, "0.0.0.0", () => {
+  console.log(`Nexus Colony server running on port ${PORT}`);
+});
