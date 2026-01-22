@@ -1,0 +1,105 @@
+// buildings.json
+{
+  "buildings": {
+    "campfire": {
+      "name": "Lagerfeuer",
+      "icon": "🔥",
+      "era": "proto",
+      "footprint": { "w": 1, "h": 1 },
+      "cost": { "energie": 0, "nahrung": 10 },
+      "produces": { "energie": 2 },
+      "visual": "fire_small",
+      "description": "Erste Energiequelle. Sichtbares Feuer."
+    },
+    "hut": {
+      "name": "Hütte",
+      "icon": "🛖",
+      "era": "proto",
+      "footprint": { "w": 1, "h": 1 },
+      "cost": { "energie": 5, "nahrung": 20 },
+      "produces": { "bevoelkerung": 2 },
+      "visual": "hut",
+      "description": "Primitive Unterkunft."
+    },
+    "farm": {
+      "name": "Farm",
+      "icon": "🌾",
+      "era": "ancient",
+      "footprint": { "w": 2, "h": 2 },
+      "cost": { "energie": 20, "nahrung": 0 },
+      "produces": { "nahrung": 8 },
+      "visual": "farm_fields",
+      "description": "Produziert Nahrung mit sichtbaren Feldern."
+    },
+    "house": {
+      "name": "Haus",
+      "icon": "🏠",
+      "era": "ancient",
+      "footprint": { "w": 1, "h": 1 },
+      "cost": { "energie": 25, "nahrung": 30 },
+      "produces": { "bevoelkerung": 4 },
+      "visual": "stone_house",
+      "description": "Stabile Wohnhäuser."
+    },
+    "workshop": {
+      "name": "Werkstatt",
+      "icon": "⚒️",
+      "era": "medieval",
+      "footprint": { "w": 2, "h": 1 },
+      "cost": { "energie": 40, "nahrung": 30 },
+      "produces": { "energie": -2, "research": 2 },
+      "visual": "workshop_smoke",
+      "description": "Erste spezialisierte Produktion."
+    },
+    "watchtower": {
+      "name": "Wachturm",
+      "icon": "🗼",
+      "era": "medieval",
+      "footprint": { "w": 1, "h": 1 },
+      "cost": { "energie": 30, "nahrung": 20 },
+      "produces": { "stability": 3 },
+      "visual": "tower",
+      "description": "Schützt vor Gegnern auf Wegen."
+    },
+    "factory": {
+      "name": "Fabrik",
+      "icon": "🏭",
+      "era": "industrial",
+      "footprint": { "w": 3, "h": 2 },
+      "cost": { "energie": 120, "nahrung": 80 },
+      "produces": { "energie": -5, "research": 8 },
+      "visual": "factory_smoke",
+      "description": "Hohe Produktion, sichtbare Umweltbelastung."
+    },
+    "powerplant": {
+      "name": "Kraftwerk",
+      "icon": "⚡",
+      "era": "industrial",
+      "footprint": { "w": 2, "h": 2 },
+      "cost": { "energie": 0, "nahrung": 100 },
+      "produces": { "energie": 20 },
+      "visual": "powerplant",
+      "description": "Massive Energiequelle."
+    },
+    "habitat": {
+      "name": "Habitat",
+      "icon": "🏢",
+      "era": "futuristic",
+      "footprint": { "w": 2, "h": 2 },
+      "cost": { "energie": 200, "nahrung": 150 },
+      "produces": { "bevoelkerung": 12 },
+      "visual": "habitat_glass",
+      "description": "Vertikale Wohnkomplexe."
+    },
+    "fusion_reactor": {
+      "name": "Fusionsreaktor",
+      "icon": "🔆",
+      "era": "futuristic",
+      "footprint": { "w": 3, "h": 3 },
+      "cost": { "energie": 0, "nahrung": 300 },
+      "produces": { "energie": 60 },
+      "visual": "fusion_core",
+      "description": "Ultimative Energiequelle mit starken Effekten."
+    }
+  }
+}
