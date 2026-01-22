@@ -7,6 +7,7 @@ const WebSocket = require("ws");
 const http = require("http");
 const fs = require("fs");
 const path = require("path");
+const db = require("./src/db");
 
 const PORT = process.env.PORT || 3000;
 const TICK_INTERVAL = 5000;
@@ -1097,15 +1098,14 @@ class Lobby {
 // ========================================
 // WEBSOCKET SERVER
 // ========================================
-const server = http.createServer((req, res) => {
-  if (req.url === "/" || req.url === "/health") {
-    res.writeHead(200, { "Content-Type": "text/plain; charset=utf-8" });
-    res.end("OK");
-    return;
+const server = http.createServer();
+(async () => {
+  try {
+    await db.initRedis();
+  } catch (e) {
+    console.error("Redis init failed:", e);
   }
-  res.writeHead(404, { "Content-Type": "text/plain; charset=utf-8" });
-  res.end("Not Found");
-});
+})();
 
 const wss = new WebSocket.Server({ server });
 
@@ -1739,5 +1739,7 @@ function handleSkillRespec(ws) {
 }
 
 server.listen(PORT, "0.0.0.0", () => {
-  console.log(`Nexus Colony server running on port ${PORT}`);
+  console.log("Server running on port", PORT);
 });
+
+
