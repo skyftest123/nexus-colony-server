@@ -23,7 +23,7 @@
     "farm": {
       "name": "Farm",
       "icon": "🌾",
-      "era": "ancient",
+      "era": "proto",
       "footprint": { "w": 2, "h": 2 },
       "cost": { "energie": 20, "nahrung": 0 },
       "produces": { "nahrung": 8 },
