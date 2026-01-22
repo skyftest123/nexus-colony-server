@@ -1,0 +1,90 @@
+// eras.json
+{
+  "eras": [
+    {
+      "id": "proto",
+      "name": "Primitive Epoche",
+      "theme": "rudimentär, Zelte, Lagerfeuer",
+      "color": "#6b4f2a",
+      "unlock": {},
+      "description": "Erste Landung. Improvisierte Unterkünfte, einfache Energiequellen.",
+      "visuals": {
+        "ground": "dirt",
+        "density": 0.2,
+        "height": 1
+      }
+    },
+    {
+      "id": "ancient",
+      "name": "Antike",
+      "theme": "Stein, Säulen, Ordnung",
+      "color": "#c9a24d",
+      "unlock": {
+        "pop": 50,
+        "food": 300,
+        "energy": 200
+      },
+      "description": "Stabile Strukturen, erste Stadtplanung.",
+      "visuals": {
+        "ground": "stone",
+        "density": 0.35,
+        "height": 2
+      }
+    },
+    {
+      "id": "medieval",
+      "name": "Mittelalter",
+      "theme": "Holz, Werkstätten, Mauern",
+      "color": "#7a7a7a",
+      "unlock": {
+        "pop": 150,
+        "food": 800,
+        "energy": 500,
+        "labs": 1
+      },
+      "description": "Wachsende Bevölkerung, Verteidigung wird wichtig.",
+      "visuals": {
+        "ground": "cobble",
+        "density": 0.5,
+        "height": 3
+      }
+    },
+    {
+      "id": "industrial",
+      "name": "Industriezeitalter",
+      "theme": "Metall, Rauch, Maschinen",
+      "color": "#4a4a4a",
+      "unlock": {
+        "pop": 400,
+        "food": 2000,
+        "energy": 1500,
+        "research": 300
+      },
+      "description": "Automatisierung, Umweltverschmutzung, hohe Effizienz.",
+      "visuals": {
+        "ground": "asphalt",
+        "density": 0.75,
+        "height": 5
+      }
+    },
+    {
+      "id": "futuristic",
+      "name": "Futuristische Ära",
+      "theme": "Neon, Glas, Schwebeelemente",
+      "color": "#00d4ff",
+      "unlock": {
+        "pop": 800,
+        "food": 5000,
+        "energy": 4000,
+        "research": 1200,
+        "stability": 70
+      },
+      "description": "Perfektionierte Systeme, maximale Expansion.",
+      "visuals": {
+        "ground": "neon",
+        "density": 1.0,
+        "height": 8
+      }
+    }
+  ]
+}
