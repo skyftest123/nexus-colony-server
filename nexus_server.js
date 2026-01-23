@@ -336,7 +336,9 @@ class Lobby {
 
   async processTick() {
     // no instant "event spam": we don't inject events here yet
-    tickState(this.state);
+    const dt = TICK_MS / 1000;
+    tickState(this.state, dt);
+
 
     // small “always something happens”: if resources increased, UI can pulse; client already does
     // server sends tick notes for notifications (starvation/blackout_pressure etc)
