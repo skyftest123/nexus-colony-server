@@ -1,13 +1,13 @@
 // src/state.js
 // Zentrale Game-State-Logik + Laden der datengetriebenen Configs (skills/eras/buildings)
-// Fokus: server-authoritative, map/placement basiert (sichtbares Wachstum), tick-ready
+// Fokus: server-authoritative, map/placement basiert (sichtbares Wachstum), dt-basiert (pro Sekunde skalierend)
 //
 // Erwartete Dateien im Repo-Root (oder /data):
 // - skills.json
 // - eras.json
 // - buildings.json
-//
-// Dieses Modul macht KEIN WebSocket. Es liefert nur State + Funktionen.
+
+"use strict";
 
 const fs = require("fs");
 const path = require("path");
@@ -21,9 +21,7 @@ function readJsonFirstExisting(paths) {
       if (fs.existsSync(p)) {
         return JSON.parse(fs.readFileSync(p, "utf8"));
       }
-    } catch (e) {
-      // ignore and try next
-    }
+    } catch (_) {}
   }
   return null;
 }
@@ -63,7 +61,6 @@ function loadConfigs() {
 }
 
 function normalizeSkills(raw) {
-  // Unterstützt: { skills: [...] } oder direkt [...]
   const list = Array.isArray(raw) ? raw : raw?.skills;
   if (!Array.isArray(list)) return [];
 
@@ -102,7 +99,6 @@ function normalizeEras(raw) {
 }
 
 function normalizeBuildings(raw) {
-  // Unterstützt: { buildings: { ... } } oder direkt { ... }
   const obj = raw?.buildings && typeof raw.buildings === "object" ? raw.buildings : raw;
   if (!obj || typeof obj !== "object") return {};
 
@@ -128,10 +124,9 @@ function normalizeBuildings(raw) {
       tags: Array.isArray(b.tags) ? b.tags.map(String) : [],
       visual: String(b.visual || ""),
       description: String(b.description || ""),
-      // optional gameplay
       maxCount: Number.isFinite(b.maxCount) ? b.maxCount : null,
-      buildTimeTicks: Number.isFinite(b.buildTimeTicks) ? b.buildTimeTicks : 0, // 0 = instant queue only through challenges later
-      type: String(b.type || "production"), // production/defense/housing/utility
+      buildTimeTicks: Number.isFinite(b.buildTimeTicks) ? b.buildTimeTicks : 0,
+      type: String(b.type || "production"),
     };
   }
   return out;
@@ -154,7 +149,6 @@ function generateDefaultPaths(width, height) {
   const blocked = new Set();
   const midY = Math.floor(height / 2);
   for (let x = 0; x < width; x++) blocked.add(`${x},${midY}`);
-  // kleine Ausbuchtung (damit es nicht stumpf aussieht)
   blocked.add(`2,${Math.max(0, midY - 1)}`);
   blocked.add(`${Math.max(0, width - 3)},${Math.min(height - 1, midY + 1)}`);
   return Array.from(blocked);
@@ -165,10 +159,7 @@ function createEmptyMap(width = 12, height = 8) {
     width,
     height,
     blockedPaths: generateDefaultPaths(width, height),
-    // Instances = sichtbare Gebäude auf dem Grid
-    // { id, type, x, y, w, h, level, hp, builtAtTick }
     instances: [],
-    // optional: tiles meta später
   };
 }
 
@@ -197,12 +188,22 @@ function isColliding(map, x, y, w, h) {
   return false;
 }
 
+function isBuildingUnlockedForEra(eras, currentEraId, buildingEraId) {
+  const ci = eras.findIndex((e) => e.id === currentEraId);
+  const bi = eras.findIndex((e) => e.id === buildingEraId);
+  if (ci === -1 || bi === -1) return false;
+  return bi <= ci;
+}
+
+function countBuildings(state, buildingId) {
+  return state.map.instances.filter((i) => i.type === buildingId).length;
+}
+
 function canPlaceBuilding(state, buildingId, x, y) {
   const cfg = state.config;
   const b = cfg.buildings[buildingId];
   if (!b) return { ok: false, reason: "Unknown building" };
 
-  // era gating: building.era muss <= aktuelle era index
   if (!isBuildingUnlockedForEra(cfg.eras, state.era, b.era)) {
     return { ok: false, reason: "LockedByEra" };
   }
@@ -214,7 +215,6 @@ function canPlaceBuilding(state, buildingId, x, y) {
   if (isBlockedByPath(state.map, x, y, w, h)) return { ok: false, reason: "OnPath" };
   if (isColliding(state.map, x, y, w, h)) return { ok: false, reason: "Collision" };
 
-  // maxCount optional
   if (typeof b.maxCount === "number") {
     const count = countBuildings(state, buildingId);
     if (count >= b.maxCount) return { ok: false, reason: "MaxCount" };
@@ -231,7 +231,6 @@ function placeBuilding(state, playerId, buildingId, x, y) {
   const check = canPlaceBuilding(state, buildingId, x, y);
   if (!check.ok) return check;
 
-  // Ressourcen prüfen/abziehen
   const cost = b.cost || {};
   if (!hasResources(state.resources, cost)) return { ok: false, reason: "NotEnoughResources", cost };
   applyResources(state.resources, invertBag(cost));
@@ -266,7 +265,6 @@ function upgradeBuilding(state, instanceId) {
   const inst = state.map.instances.find((i) => i.id === instanceId);
   if (!inst) return { ok: false, reason: "NotFound" };
 
-  // Upgrade-Kosten: simple scaling (kann später durch Skills ersetzt/verbessert werden)
   const b = state.config.buildings[inst.type];
   if (!b) return { ok: false, reason: "UnknownBuilding" };
 
@@ -284,17 +282,6 @@ function upgradeBuilding(state, instanceId) {
   inst.level = lvl + 1;
   state.stats.buildingsUpgraded = (state.stats.buildingsUpgraded || 0) + 1;
   return { ok: true, newLevel: inst.level };
-}
-
-function countBuildings(state, buildingId) {
-  return state.map.instances.filter((i) => i.type === buildingId).length;
-}
-
-function isBuildingUnlockedForEra(eras, currentEraId, buildingEraId) {
-  const ci = eras.findIndex((e) => e.id === currentEraId);
-  const bi = eras.findIndex((e) => e.id === buildingEraId);
-  if (ci === -1 || bi === -1) return false;
-  return bi <= ci;
 }
 
 // -----------------------------
@@ -317,11 +304,8 @@ function canUnlockNextEra(state) {
   if (Number.isFinite(req.stability) && r.stabilitaet < req.stability) return { ok: false, reason: "ReqStability", need: req.stability };
 
   if (Number.isFinite(req.labs)) {
-    // labs = count of a specific building type OR tag-based; hier: buildingId "forschungslabor" oder "workshop/factory" später
     const labCount =
-      countBuildings(state, "forschungslabor") +
-      countBuildings(state, "workshop") +
-      countBuildings(state, "factory");
+      countBuildings(state, "forschungslabor") + countBuildings(state, "workshop") + countBuildings(state, "factory");
     if (labCount < req.labs) return { ok: false, reason: "ReqLabs", need: req.labs };
   }
 
@@ -336,13 +320,12 @@ function unlockNextEra(state) {
   const ci = eras.findIndex((e) => e.id === state.era);
   const next = eras[ci + 1];
 
-  // Optional: freikaufen kostet Ressourcen (damit es nicht „gratis“ ist)
-  // Wenn du später andere Costs willst: hier ändern.
   const buyCost = {
     energie: Math.floor((next.unlock?.energy || 0) * 0.2),
     nahrung: Math.floor((next.unlock?.food || 0) * 0.2),
     forschung: Math.floor((next.unlock?.research || 0) * 0.2),
   };
+
   if (!hasResources(state.resources, buyCost)) {
     return { ok: false, reason: "NotEnoughToBuyEra", cost: buyCost };
   }
@@ -354,16 +337,18 @@ function unlockNextEra(state) {
 }
 
 // -----------------------------
-// Tick / Economy (map.instances-based)
+// Tick / Economy (dt-basiert)
 // -----------------------------
-function computeProductionAndMaintenance(state) {
+function computeProductionAndMaintenance(state, dt) {
   const cfg = state.config;
   const r = state.resources;
 
-  // Base drain (stability)
-  r.stabilitaet = clamp(r.stabilitaet - 0.25, 0, 100);
+  // ---- Baseline: Stabilität sinkt NICHT permanent schnell.
+  // Nur minimaler natürlicher Drift (pro Sekunde).
+  const STABILITY_NATURAL_DECAY_PER_SEC = 0.003; // 0.18 pro Minute
+  r.stabilitaet = clamp((r.stabilitaet || 0) - STABILITY_NATURAL_DECAY_PER_SEC * dt, 0, 100);
 
-  // Production & maintenance from placed buildings
+  // ---- Produktion & Unterhalt aus Gebäuden (pro Sekunde * dt)
   const instances = state.map.instances;
 
   for (const inst of instances) {
@@ -373,64 +358,110 @@ function computeProductionAndMaintenance(state) {
     const lvl = inst.level || 1;
     const levelMult = 1 + (lvl - 1) * 0.15;
 
-    // produces (can include negatives)
     for (const [k, v] of Object.entries(b.produces || {})) {
-      r[k] = (r[k] || 0) + v * levelMult;
+      r[k] = (r[k] || 0) + v * levelMult * dt;
     }
 
-    // maintenance
     for (const [k, v] of Object.entries(b.maintenance || {})) {
-      r[k] = (r[k] || 0) - v * (1 + (lvl - 1) * 0.12);
+      r[k] = (r[k] || 0) - v * (1 + (lvl - 1) * 0.12) * dt;
     }
   }
 
-  // Population consumes food
-  const pop = r.bevoelkerung || 0;
-  const foodUse = pop * 0.45;
+  // ---- Bevölkerung verbraucht Nahrung (pro Sekunde * dt)
+  const pop = Math.max(0, Number(r.bevoelkerung || 0));
+
+  // 0.45 pro Tick war zu hart. Wir machen daraus "pro Sekunde".
+  // 0.005 => bei Pop=12: 0.06 Nahrung/Sek (~3.6/Min), Startfood 120 hält ~33 Min ohne Produktion.
+  const FOOD_USE_PER_PERSON_PER_SEC = 0.005;
+  const foodUse = pop * FOOD_USE_PER_PERSON_PER_SEC * dt;
   r.nahrung = (r.nahrung || 0) - foodUse;
 
-  // Starvation penalty
-  if (r.nahrung < 0) {
+  // ---- Hunger/Starvation: nicht instant 10 Stabilität pro Tick, sondern gestaffelt
+  if ((r.nahrung || 0) < 0) {
     r.nahrung = 0;
-    const deaths = Math.max(1, Math.floor(pop * 0.03));
-    r.bevoelkerung = Math.max(1, pop - deaths);
-    r.stabilitaet = clamp(r.stabilitaet - 10, 0, 100);
-    state.lastTickNotes.push({
-      type: "starvation",
-      deaths,
-      msg: `${deaths} verhungert (zu wenig Nahrung).`,
-    });
+
+    // Zeit im Hunger akkumulieren (Sekunden)
+    state._starveSeconds = (state._starveSeconds || 0) + dt;
+
+    // Stabilität sinkt pro Sekunde bei Hunger
+    const STABILITY_DECAY_STARVING_PER_SEC = 0.06; // 3.6 pro Minute
+    r.stabilitaet = clamp((r.stabilitaet || 0) - STABILITY_DECAY_STARVING_PER_SEC * dt, 0, 100);
+
+    // Alle 30 Sekunden Hunger: kleine Todeswelle (statt jede Sekunde)
+    const DEATH_INTERVAL_SEC = 30;
+    while (state._starveSeconds >= DEATH_INTERVAL_SEC) {
+      state._starveSeconds -= DEATH_INTERVAL_SEC;
+
+      const curPop = Math.max(0, Number(r.bevoelkerung || 0));
+      if (curPop <= 1) break;
+
+      // 3% pro 30s ist heftig; wir reduzieren auf 1% pro 30s, min 1
+      const deaths = Math.max(1, Math.floor(curPop * 0.01));
+      r.bevoelkerung = Math.max(1, curPop - deaths);
+
+      state.lastTickNotes.push({
+        type: "starvation",
+        deaths,
+        msg: `${deaths} verhungert (zu wenig Nahrung).`,
+      });
+    }
+  } else {
+    state._starveSeconds = 0;
   }
 
-  // Energy floor
-  if (r.energie < 0) {
+  // ---- Energie: wenn <0 -> 0 + Stabilitätsdruck pro Sekunde
+  if ((r.energie || 0) < 0) {
     r.energie = 0;
-    r.stabilitaet = clamp(r.stabilitaet - 6, 0, 100);
-    state.lastTickNotes.push({
-      type: "blackout_pressure",
-      msg: `Energie auf 0 → Stabilität leidet.`,
-    });
+
+    // Stabilität sinkt pro Sekunde bei Blackout
+    const STABILITY_DECAY_BLACKOUT_PER_SEC = 0.035; // 2.1 pro Minute
+    r.stabilitaet = clamp((r.stabilitaet || 0) - STABILITY_DECAY_BLACKOUT_PER_SEC * dt, 0, 100);
+
+    // Notiz nur gelegentlich (sonst Spam): alle 20 Sekunden
+    state._blackoutNoteSeconds = (state._blackoutNoteSeconds || 0) + dt;
+    if (state._blackoutNoteSeconds >= 20) {
+      state._blackoutNoteSeconds = 0;
+      state.lastTickNotes.push({
+        type: "blackout_pressure",
+        msg: `Energie auf 0 → Stabilität leidet.`,
+      });
+    }
+  } else {
+    state._blackoutNoteSeconds = 0;
   }
 
-  // Natural growth (wenn genug food + stability)
-  if (r.nahrung > 40 && r.stabilitaet > 35) {
-    const growth = Math.max(0, Math.floor(pop * 0.012));
-    r.bevoelkerung = pop + growth;
+  // ---- Natürliches Wachstum (sanfter, dt-basiert)
+  // Vorher: floor(pop*0.012) pro Tick → bei schnellen Ticks zu wild.
+  // Jetzt: 0.0012 pro Sekunde => 0.12%/Sek => ~7.2%/Min (noch spürbar, aber steuerbar)
+  if ((r.nahrung || 0) > 40 && (r.stabilitaet || 0) > 35) {
+    const POP_GROWTH_PER_SEC = 0.0012; // Anteil pro Sekunde
+    const growthFloat = pop * POP_GROWTH_PER_SEC * dt;
+
+    state._popGrowthCarry = (state._popGrowthCarry || 0) + growthFloat;
+    const add = Math.floor(state._popGrowthCarry);
+    if (add > 0) {
+      state._popGrowthCarry -= add;
+      r.bevoelkerung = pop + add;
+    }
+  } else {
+    state._popGrowthCarry = 0;
   }
 
-  // clamp important resources
+  // clamp wichtige Ressourcen
   r.stabilitaet = clamp(r.stabilitaet, 0, 100);
 
-  // Difficulty scaling (light)
+  // Difficulty scaling (tick-basiert belassen; dt egal)
   const t = state.tick;
   state.difficulty = 1 + Math.min(1.0, t / 1200) * 0.6;
 }
 
-function tick(state) {
+function tick(state, dt = 1) {
+  // dt ist "Sekunden seit letztem Tick"
+  if (!Number.isFinite(dt) || dt <= 0) dt = 1;
+
   state.tick += 1;
-  state.lastTickNotes = []; // reset notes for UI notifications
-  computeProductionAndMaintenance(state);
-  // events/enemies/challenges kommen in anderen Modulen (tick.js / challenges.js)
+  state.lastTickNotes = [];
+  computeProductionAndMaintenance(state, dt);
   return state;
 }
 
@@ -446,6 +477,7 @@ function hasResources(res, cost) {
   }
   return true;
 }
+
 function applyResources(res, delta) {
   for (const [k, v] of Object.entries(delta || {})) {
     const n = Number(v);
@@ -453,6 +485,7 @@ function applyResources(res, delta) {
     res[k] = (res[k] || 0) + n;
   }
 }
+
 function invertBag(bag) {
   const out = {};
   for (const [k, v] of Object.entries(bag || {})) {
@@ -461,6 +494,7 @@ function invertBag(bag) {
   }
   return out;
 }
+
 function clamp(n, a, b) {
   return Math.max(a, Math.min(b, n));
 }
@@ -472,18 +506,11 @@ function createInitialState(opts = {}) {
   const config = loadConfigs();
 
   const state = {
-    // config is kept in-memory so other modules can access it
     config,
-
-    // timeline
     tick: 0,
     createdAt: Date.now(),
     difficulty: 1,
-
-    // progression
     era: "proto",
-
-    // core resources
     resources: {
       energie: 120,
       nahrung: 120,
@@ -491,32 +518,29 @@ function createInitialState(opts = {}) {
       forschung: 0,
       stabilitaet: 100,
     },
-
-    // map-based colony
     map: createEmptyMap(opts.mapWidth || 12, opts.mapHeight || 8),
-
-    // per-tick notes for UI (notifications)
     lastTickNotes: [],
-
-    // stats
     stats: {
       buildingsPlaced: 0,
       buildingsUpgraded: 0,
       buildingsDemolished: 0,
       erasUnlocked: 0,
     },
+
+    // internal accumulators
+    _starveSeconds: 0,
+    _blackoutNoteSeconds: 0,
+    _popGrowthCarry: 0,
   };
 
-  // Start colony with a couple of proto buildings placed (visible immediately)
-  // If those IDs don’t exist in buildings.json, we skip.
   const starter = [
     { id: "campfire", x: 1, y: 1 },
     { id: "hut", x: 3, y: 1 },
     { id: "hut", x: 4, y: 2 },
   ];
+
   for (const s of starter) {
     if (state.config.buildings[s.id]) {
-      // ignore resource cost for starter placement
       const b = state.config.buildings[s.id];
       if (
         isInsideMap(state.map, s.x, s.y, b.footprint.w, b.footprint.h) &&
@@ -548,20 +572,12 @@ function createInitialState(opts = {}) {
 module.exports = {
   loadConfigs,
   createInitialState,
-
-  // tick
   tick,
-
-  // map & placement
   canPlaceBuilding,
   placeBuilding,
   removeBuilding,
   upgradeBuilding,
-
-  // era
   canUnlockNextEra,
   unlockNextEra,
-
-  // helpers (optional)
   generateDefaultPaths,
 };
