@@ -61,7 +61,12 @@ function loadConfigs() {
 }
 
 function normalizeSkills(raw) {
-  const list = Array.isArray(raw) ? raw : raw?.skills;
+  // Unterstützt:
+  // 1) direkt [...]
+  // 2) { skills: [...] }
+  // 3) Skilltree-Format: { nodes: [...] }  <-- DEIN FORMAT
+  const list = Array.isArray(raw) ? raw : (raw?.skills || raw?.nodes);
+
   if (!Array.isArray(list)) return [];
 
   return list
@@ -73,13 +78,14 @@ function normalizeSkills(raw) {
       tier: Number.isFinite(s.tier) ? s.tier : 1,
       cost: Number.isFinite(s.cost) ? s.cost : 1,
       requires: Array.isArray(s.requires) ? s.requires.map(String) : [],
-      effect: s.effect && typeof s.effect === "object" ? s.effect : {},
-      icon: String(s.icon || "✨"),
+      // skills.json nutzt "effects" (Array) – für Unlock-Prüfung nicht nötig,
+      // aber wir übernehmen es, falls du später Effekte auswertest:
+      effects: Array.isArray(s.effects) ? s.effects : [],
       ui: s.ui && typeof s.ui === "object" ? s.ui : {},
-      unlocks: s.unlocks && typeof s.unlocks === "object" ? s.unlocks : {},
       desc: String(s.desc || ""),
     }));
 }
+
 
 function normalizeEras(raw) {
   const list = Array.isArray(raw) ? raw : raw?.eras;
