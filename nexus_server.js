@@ -117,6 +117,26 @@ function generateLobbyCode() {
   return Math.random().toString(36).substring(2, 7).toUpperCase();
 }
 
+function eraIndexById(eraId) {
+  const id = String(eraId || "proto");
+  const idx = CONFIG.eras.findIndex(e => String(e.id) === id);
+  return idx >= 0 ? idx : 0;
+}
+
+function calcPrestigeMult(level) {
+  const lvl = Math.max(0, Math.floor(Number(level || 0)));
+  // linear + cap (einfach, stabil, kein Exploit)
+  const mult = 1 + lvl * 0.06;     // +6% pro Prestige
+  return Math.min(2.5, mult);      // max 2.5x
+}
+
+function grantSkillPoints(prog, amount) {
+  const add = Math.max(0, Math.floor(Number(amount || 0)));
+  if (!add) return prog;
+  prog.skillPoints = Math.max(0, Math.floor(Number(prog.skillPoints || 0))) + add;
+  return prog;
+}
+
 // =====================================
 // Player progress (persisted in Redis)
 // =====================================
@@ -125,6 +145,9 @@ async function getPlayerProgress(playerId) {
     skillPoints: 0,
     skills: [],
     era: "proto",
+    prestigeLevel: 0,
+    prestigeShards: 0,
+    prestigeMult: 1,
     lifetime: {
       buildingsPlaced: 0,
       buildingsUpgraded: 0,
@@ -680,8 +703,9 @@ async function handlePlaceBuilding(ws, data) {
   // progress reward (dopamin)
   const prog = await getPlayerProgress(ws.playerId);
   prog.lifetime.buildingsPlaced += 1;
-  prog.skillPoints += 1; // kleine Belohnung
+  // SP gibt es nicht fürs Bauen (sonst farmbar) – nur über Challenges/Meilensteine
   await savePlayerProgress(ws.playerId, prog);
+
 
   lobby.broadcast({ type: "notification", severity: "success", message: `🏗️ Gebäude platziert: ${buildingId}` });
 
@@ -708,8 +732,9 @@ async function handleUpgradeBuilding(ws, data) {
 
   const prog = await getPlayerProgress(ws.playerId);
   prog.lifetime.buildingsUpgraded += 1;
-  prog.skillPoints += 1;
+  // SP gibt es nicht fürs Upgraden (sonst farmbar) – nur über Challenges/Meilensteine
   await savePlayerProgress(ws.playerId, prog);
+
 
   lobby.broadcast({ type: "notification", severity: "success", message: `⬆️ Upgrade erfolgreich (Level ${res.newLevel})` });
 
@@ -769,8 +794,9 @@ async function handleBuildLegacy(ws, data) {
 
   const prog = await getPlayerProgress(ws.playerId);
   prog.lifetime.buildingsPlaced += 1;
-  prog.skillPoints += 1;
+  // SP gibt es nicht fürs Bauen (sonst farmbar) – nur über Challenges/Meilensteine
   await savePlayerProgress(ws.playerId, prog);
+
 
   lobby.broadcast({ type: "notification", severity: "success", message: `🏗️ ${buildingId} gebaut (auto-platziert)` });
   await saveLobbySnapshot(lobby.id, lobby);
@@ -817,12 +843,48 @@ async function handleUnlockEra(ws, data) {
   }
 
   const prog = await getPlayerProgress(ws.playerId);
-  prog.era = lobby.state.era;
+
+  // ---- Prestige Gain: abhängig von neuer Epoche
+  // (Je weiter, desto mehr Shards. Sehr simpel und stabil.)
+  const newEraId = lobby.state.era;
+  const eraIdx = eraIndexById(newEraId);
+  const gainedShards = Math.max(1, 1 + eraIdx); // proto->1, antique->2, ...
+
+  prog.era = newEraId;
   prog.lifetime.erasUnlocked += 1;
-  prog.skillPoints += 2; // stärkere Belohnung
+
+
+  prog.prestigeShards = Number(prog.prestigeShards || 0) + gainedShards;
+
+  // Jede Era-Freischaltung = 1 Prestige Level
+  prog.prestigeLevel = Math.max(0, Math.floor(Number(prog.prestigeLevel || 0))) + 1;
+  prog.prestigeMult = calcPrestigeMult(prog.prestigeLevel);
+
   await savePlayerProgress(ws.playerId, prog);
 
-  lobby.broadcast({ type: "notification", severity: "success", message: `🌟 Neue Epoche: ${lobby.state.era}` });
+  // ---- RESET der Lobby-Map/State, aber in der NEUEN Epoche weiterspielen
+  const oldW = Number(lobby.state?.map?.width || 12);
+  const oldH = Number(lobby.state?.map?.height || 8);
+
+  const fresh = createInitialState({ mapWidth: oldW, mapHeight: oldH });
+  fresh.config = CONFIG;
+  fresh.era = newEraId;
+
+  // Prestige in den State schreiben, damit tick() es nutzen kann
+  fresh.prestige = {
+    level: prog.prestigeLevel,
+    mult: prog.prestigeMult,
+  };
+
+  lobby.state = fresh;
+
+
+  lobby.broadcast({
+    type: "notification",
+    severity: "success",
+    message: `🌟 Neue Epoche: ${lobby.state.era} — Prestige ${prog.prestigeLevel} (+${gainedShards} Shards, x${prog.prestigeMult.toFixed(2)})`,
+  });
+
 
   await saveLobbySnapshot(lobby.id, lobby);
   await lobby.broadcastState();
