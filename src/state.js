@@ -592,7 +592,15 @@ function clamp(n, a, b) {
 // -----------------------------
 function createInitialState(opts = {}) {
   const config = loadConfigs();
-  const startBoost = 1 + (state.prestige?.level || 0) * 0.05;
+  // ---- apply prestige start boost (must be AFTER state is created)
+  const prestigeLevel = Math.max(0, Math.floor(Number(state.prestige?.level || 0)));
+  const startBoost = 1 + prestigeLevel * 0.05;
+  
+  // If you only want this to boost starting resources (and not re-apply later),
+  // do it once here:
+  state.resources.energie = Math.floor((state.resources.energie || 0) * startBoost);
+  state.resources.nahrung = Math.floor((state.resources.nahrung || 0) * startBoost);
+  state.resources.bevoelkerung = Math.floor((state.resources.bevoelkerung || 0) * startBoost);
   state.resources.energie *= startBoost;
   state.resources.nahrung *= startBoost;
   
@@ -622,11 +630,7 @@ function createInitialState(opts = {}) {
       forschung: 0,
       stabilitaet: 100,
     },
-     // Prestige (server-authoritative)
-    prestige: {
-      level: 0,      // wird vom Server gesetzt
-      mult: 1,       // wird vom Server gesetzt
-    },
+    prestige: { level: 0, mult: 1 },
     map: createEmptyMap(opts.mapWidth || 12, opts.mapHeight || 8),
     stats: {
       buildingsPlaced: 0,
