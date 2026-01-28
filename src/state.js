@@ -391,6 +391,14 @@ function computeProductionAndMaintenance(state, dt) {
       case "unrest":
         state.resources.stabilitaet -= 0.4 * dt;
         break;
+
+      case "food_crisis":
+        state.resources.nahrung -= 0.5 * shopEventResist * dt;
+        break;
+      
+      case "unrest":
+        state.resources.stabilitaet -= 0.4 * shopEventResist * dt;
+        break;
     }
   
     // Event endet
@@ -437,7 +445,7 @@ function computeProductionAndMaintenance(state, dt) {
     // -----------------------------
     const WEAR_PER_SEC = 0.015; // ~0.9 pro Minute
     inst.condition = clamp(
-      (inst.condition ?? 100) - WEAR_PER_SEC * dt,
+      (inst.condition ?? 100) - WEAR_PER_SEC * state.difficulty * dt,
       0,
       100
     );
