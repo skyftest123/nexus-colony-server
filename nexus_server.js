@@ -594,6 +594,9 @@ async function handleMessage(ws, data) {
     case "reconnect_lobby":
       return handleReconnectLobby(ws, data);
 
+    case "prestige_buy":
+      return handlePrestigeBuy(ws, data);
+      
     case "leave_lobby":
       return handleLeaveLobby(ws);
 
@@ -635,6 +638,47 @@ async function handleMessage(ws, data) {
       safeSend(ws, { type: "error", message: "Unbekannter Nachrichtentyp: " + type });
       return;
   }
+}
+
+async function handlePrestigeBuy(ws, data) {
+  const lr = requireLobby(ws);
+  if (!lr.ok) return safeSend(ws, { type: "error", message: lr.err });
+  const lobby = lr.lobby;
+
+  const itemId = String(data.itemId || "");
+  const item = PRESTIGE_SHOP[itemId];
+  if (!item) return safeSend(ws, { type: "error", message: "Unbekanntes Prestige-Item" });
+
+  const prog = await getPlayerProgress(ws.playerId);
+  prog.prestigeShop ||= {};
+  const curLvl = Number(prog.prestigeShop[itemId] || 0);
+
+  if (curLvl >= item.maxLevel) {
+    return safeSend(ws, { type: "notification", severity: "info", message: "Max-Level erreicht" });
+  }
+
+  const cost = item.cost(curLvl);
+  if ((prog.prestigeShards || 0) < cost) {
+    return safeSend(ws, { type: "notification", severity: "warning", message: "Nicht genug Shards" });
+  }
+
+  prog.prestigeShards -= cost;
+  prog.prestigeShop[itemId] = curLvl + 1;
+
+  await savePlayerProgress(ws.playerId, prog);
+
+  // Re-apply shop effects to state
+  lobby.state.prestigeShop ||= {};
+  item.effect(lobby.state, prog.prestigeShop[itemId]);
+
+  lobby.broadcast({
+    type: "notification",
+    severity: "success",
+    message: `✨ Prestige gekauft: ${item.name} (Level ${prog.prestigeShop[itemId]})`,
+  });
+
+  await saveLobbySnapshot(lobby.id, lobby);
+  await lobby.broadcastState();
 }
 
 // =====================================
