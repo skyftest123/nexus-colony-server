@@ -194,7 +194,6 @@ function computeRoleBonuses(lobby) {
     }
   }
 
-  // Caps (damit es nicht eskaliert)
   bonuses.energyMult = Math.min(1.3, bonuses.energyMult);
   bonuses.foodMult = Math.min(1.3, bonuses.foodMult);
   bonuses.researchMult = Math.min(1.3, bonuses.researchMult);
@@ -375,6 +374,31 @@ async function saveLobbySnapshot(lobbyId, lobbyObj) {
 // =====================================
 // Lobby class
 // =====================================
+function computeRoleBonuses(lobby) {
+  const bonuses = {
+    energyMult: 1,
+    foodMult: 1,
+    researchMult: 1,
+    stabilityMult: 1,
+  };
+
+  for (const p of lobby.players.values()) {
+    switch (p.role) {
+      case "engineer": bonuses.energyMult += 0.05; break;
+      case "logistician": bonuses.foodMult += 0.05; break;
+      case "researcher": bonuses.researchMult += 0.05; break;
+      case "diplomat": bonuses.stabilityMult += 0.05; break;
+    }
+  }
+
+  bonuses.energyMult = Math.min(1.3, bonuses.energyMult);
+  bonuses.foodMult = Math.min(1.3, bonuses.foodMult);
+  bonuses.researchMult = Math.min(1.3, bonuses.researchMult);
+  bonuses.stabilityMult = Math.min(1.3, bonuses.stabilityMult);
+
+  return bonuses;
+}
+
 class Lobby {
   constructor(lobbyId, seededState = null) {
     this.id = String(lobbyId).toUpperCase();
@@ -457,14 +481,13 @@ class Lobby {
 
   async broadcastState() {
     const stateCopy = JSON.parse(JSON.stringify(this.state));
-    // do not send config heavy objects
     delete stateCopy.config;
-
+  
     for (const p of this.players.values()) {
       if (!p.ws || p.ws.readyState !== WebSocket.OPEN) continue;
-
+  
       const prog = await getPlayerProgress(p.id);
-
+  
       p.ws.send(
         JSON.stringify({
           type: "update_state",
@@ -474,7 +497,7 @@ class Lobby {
             era: stateCopy.era,
             difficultyMultiplier: stateCopy.difficulty,
             resources: stateCopy.resources,
-            ressourcen: stateCopy.resources, // legacy key for UI compatibility
+            ressourcen: stateCopy.resources, // legacy key
             map: stateCopy.map,
             stats: stateCopy.stats,
           },
@@ -485,6 +508,7 @@ class Lobby {
       );
     }
   }
+
   
     for (const p of lobby.players.values()) {
       switch (p.role) {
