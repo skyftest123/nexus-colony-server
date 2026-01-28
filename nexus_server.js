@@ -137,6 +137,58 @@ function grantSkillPoints(prog, amount) {
   return prog;
 }
 
+async function handleChallengeResolve(ws, data) {
+  const lr = requireLobby(ws);
+  if (!lr.ok) return safeSend(ws, { type: "error", message: lr.err });
+
+  const lobby = lr.lobby;
+  const playerId = ws.playerId;
+
+  const result = data.result;
+  if (!result || !result.ok) {
+    return safeSend(ws, {
+      type: "notification",
+      severity: "warning",
+      message: "Challenge fehlgeschlagen",
+    });
+  }
+
+  const reward = result.reward || {};
+  const prog = await getPlayerProgress(playerId);
+
+  // ---- Skillpunkte
+  if (Number.isFinite(reward.skillPoints)) {
+    grantSkillPoints(prog, reward.skillPoints);
+  }
+
+  // ---- Prestige-Shards
+  if (Number.isFinite(reward.prestigeShards)) {
+    prog.prestigeShards = (prog.prestigeShards || 0) + reward.prestigeShards;
+  }
+
+  // ---- Ressourcen
+  if (reward.resources && typeof reward.resources === "object") {
+    for (const [k, v] of Object.entries(reward.resources)) {
+      const n = Number(v);
+      if (Number.isFinite(n)) {
+        lobby.state.resources[k] = (lobby.state.resources[k] || 0) + n;
+      }
+    }
+  }
+
+  await savePlayerProgress(playerId, prog);
+
+  lobby.broadcast({
+    type: "notification",
+    severity: "success",
+    message: `🏆 Challenge abgeschlossen (+${reward.skillPoints || 0} SP)`,
+  });
+
+  await saveLobbySnapshot(lobby.id, lobby);
+  await lobby.broadcastState();
+}
+
+
 // =====================================
 // Player progress (persisted in Redis)
 // =====================================
@@ -501,6 +553,9 @@ async function handleMessage(ws, data) {
     case "build":
       // UI may only send buildingType; without x,y -> we auto-place at first free spot.
       return handleBuildLegacy(ws, data);
+
+    case "challenge_resolve":
+      return handleChallengeResolve(ws, data);
 
     default:
       safeSend(ws, { type: "error", message: "Unbekannter Nachrichtentyp: " + type });
