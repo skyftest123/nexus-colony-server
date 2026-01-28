@@ -108,7 +108,7 @@
       },
       "tags": ["science", "lab"],
       "description": "Ermöglicht strukturierte Forschung und technologische Durchbrüche."
-    }
+    },
     "fusion_reactor": {
       "name": "Fusionsreaktor",
       "icon": "🔆",
