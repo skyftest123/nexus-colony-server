@@ -311,7 +311,7 @@ function canUnlockNextEra(state) {
 
   if (Number.isFinite(req.labs)) {
     const labCount =
-      countBuildings(state, "forschungslabor") + countBuildings(state, "workshop") + countBuildings(state, "factory");
+      countBuildings(state, "research_lab") + countBuildings(state, "workshop") + countBuildings(state, "factory");
     if (labCount < req.labs) return { ok: false, reason: "ReqLabs", need: req.labs };
   }
 
