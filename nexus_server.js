@@ -170,13 +170,12 @@ function grantSkillPoints(prog, amount) {
 }
 
 function computeRoleBonuses(lobby) {
-    const bonuses = {
-      energyMult: 1,
-      foodMult: 1,
-      researchMult: 1,
-      stabilityMult: 1,
-    };
-}
+  const bonuses = {
+    energyMult: 1,
+    foodMult: 1,
+    researchMult: 1,
+    stabilityMult: 1,
+  };
 
 async function handleChallengeResolve(ws, data) {
   const lr = requireLobby(ws);
