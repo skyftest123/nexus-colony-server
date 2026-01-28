@@ -348,6 +348,9 @@ function unlockNextEra(state) {
 function computeProductionAndMaintenance(state, dt) {
   const cfg = state.config;
   const r = state.resources;
+  const prestigeMult = Number(state?.prestige?.mult || 1);
+  const pMult = Number.isFinite(prestigeMult) && prestigeMult > 0 ? prestigeMult : 1;
+
 
   // ---- Baseline: Stabilität sinkt NICHT permanent schnell.
   // Nur minimaler natürlicher Drift (pro Sekunde).
@@ -365,8 +368,9 @@ function computeProductionAndMaintenance(state, dt) {
     const levelMult = 1 + (lvl - 1) * 0.15;
 
     for (const [k, v] of Object.entries(b.produces || {})) {
-      r[k] = (r[k] || 0) + v * levelMult * dt;
+      r[k] = (r[k] || 0) + v * levelMult * pMult * dt;
     }
+
 
     for (const [k, v] of Object.entries(b.maintenance || {})) {
       r[k] = (r[k] || 0) - v * (1 + (lvl - 1) * 0.12) * dt;
@@ -523,6 +527,11 @@ function createInitialState(opts = {}) {
       bevoelkerung: 12,
       forschung: 0,
       stabilitaet: 100,
+    },
+     // Prestige (server-authoritative)
+    prestige: {
+      level: 0,      // wird vom Server gesetzt
+      mult: 1,       // wird vom Server gesetzt
     },
     map: createEmptyMap(opts.mapWidth || 12, opts.mapHeight || 8),
     lastTickNotes: [],
