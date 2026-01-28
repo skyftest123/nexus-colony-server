@@ -247,6 +247,7 @@ function placeBuilding(state, playerId, buildingId, x, y) {
     type: buildingId,
     x,
     y,
+    condition: 100, // 0–100, 100 = neu
     w: b.footprint.w,
     h: b.footprint.h,
     level: 1,
@@ -350,7 +351,13 @@ function computeProductionAndMaintenance(state, dt) {
   // EVENT SYSTEM
   // =====================
   const tick = state.tick;
-  
+  if (inst.condition < 30 && !inst._warnedLowCondition) {
+    inst._warnedLowCondition = true;
+    state.lastTickNotes.push({
+      type: "wear",
+      msg: `⚠️ Gebäude stark beschädigt (${inst.type})`,
+    });
+  }
   // Event starten (zufällig)
   if (!state.activeEvent) {
     const EVENT_CHANCE_PER_TICK = 0.015; // ~1.5 %
@@ -398,13 +405,22 @@ function computeProductionAndMaintenance(state, dt) {
   const cfg = state.config;
   const r = state.resources;
   const prestigeMult = Number(state?.prestige?.mult || 1);
+  const rb = state.roleBonuses || {};
+  const energyMult = rb.energyMult || 1;
+  const foodMult = rb.foodMult || 1;
+  const researchMult = rb.researchMult || 1;
+  const stabilityMult = rb.stabilityMult || 1;
   const pMult = Number.isFinite(prestigeMult) && prestigeMult > 0 ? prestigeMult : 1;
 
 
   // ---- Baseline: Stabilität sinkt NICHT permanent schnell.
   // Nur minimaler natürlicher Drift (pro Sekunde).
   const STABILITY_NATURAL_DECAY_PER_SEC = 0.003; // 0.18 pro Minute
-  r.stabilitaet = clamp((r.stabilitaet || 0) - STABILITY_NATURAL_DECAY_PER_SEC * dt, 0, 100);
+  r.stabilitaet = clamp(
+    (r.stabilitaet || 0) - STABILITY_NATURAL_DECAY_PER_SEC * dt * (1 / stabilityMult),
+    0,
+    100
+  );
 
   // ---- Produktion & Unterhalt aus Gebäuden (pro Sekunde * dt)
   const instances = state.map.instances;
@@ -412,12 +428,26 @@ function computeProductionAndMaintenance(state, dt) {
   for (const inst of instances) {
     const b = cfg.buildings[inst.type];
     if (!b) continue;
-
+    // -----------------------------
+    // Building wear (Abnutzung)
+    // -----------------------------
+    const WEAR_PER_SEC = 0.015; // ~0.9 pro Minute
+    inst.condition = clamp(
+      (inst.condition ?? 100) - WEAR_PER_SEC * dt,
+      0,
+      100
+    );
     const lvl = inst.level || 1;
     const levelMult = 1 + (lvl - 1) * 0.15;
+    const conditionMult = clamp((inst.condition ?? 100) / 100, 0.2, 1);
+
 
     for (const [k, v] of Object.entries(b.produces || {})) {
-      r[k] = (r[k] || 0) + v * levelMult * pMult * dt;
+      let mult = pMult;
+      if (k === "energie") mult *= energyMult;
+      if (k === "nahrung") mult *= foodMult;
+      if (k === "forschung") mult *= researchMult;
+      r[k] = (r[k] || 0) + v * levelMult * conditionMult * mult * dt;
     }
 
 
