@@ -331,6 +331,7 @@ async function saveLobbySnapshot(lobbyId, lobbyObj) {
       map: lobbyObj.state.map,
       stats: lobbyObj.state.stats,
       prestige: lobbyObj.state.prestige,
+      prestigeShop: lobbyObj.state.prestigeShop,
       // lightweight roster for UI list
       players: Array.from(lobbyObj.players.values()).map((p) => ({
         id: p.id,
