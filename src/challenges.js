@@ -93,11 +93,21 @@ function evaluateResult(ch, result) {
 
   const passed = score >= need;
 
+  const reward = passed
+    ? {
+        skillPoints: Math.max(1, Math.floor(ch.difficulty / 2)),
+        // optional skalierbar:
+        prestigeShards: ch.difficulty >= 5 ? 1 : 0,
+      }
+    : null;
+
   return {
     passed,
     score,
     need: Math.ceil(need),
+    reward,
   };
+
 }
 
 /**
