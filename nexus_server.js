@@ -399,15 +399,40 @@ function computeRoleBonuses(lobby) {
   return bonuses;
 }
 
+function computeRoleBonuses(lobby) {
+  const bonuses = {
+    energyMult: 1,
+    foodMult: 1,
+    researchMult: 1,
+    stabilityMult: 1,
+  };
+
+  for (const p of lobby.players.values()) {
+    switch (p.role) {
+      case "engineer": bonuses.energyMult += 0.05; break;
+      case "logistician": bonuses.foodMult += 0.05; break;
+      case "researcher": bonuses.researchMult += 0.05; break;
+      case "diplomat": bonuses.stabilityMult += 0.05; break;
+    }
+  }
+
+  bonuses.energyMult = Math.min(1.3, bonuses.energyMult);
+  bonuses.foodMult = Math.min(1.3, bonuses.foodMult);
+  bonuses.researchMult = Math.min(1.3, bonuses.researchMult);
+  bonuses.stabilityMult = Math.min(1.3, bonuses.stabilityMult);
+
+  return bonuses;
+}
+
+
 class Lobby {
   constructor(lobbyId, seededState = null) {
     this.id = String(lobbyId).toUpperCase();
-    this.players = new Map(); // playerId -> {id,name,role,ws,joinedAt,lastSeenTick}
+    this.players = new Map();
     this.maxPlayers = MAX_PLAYERS_PER_LOBBY;
     this.createdAt = Date.now();
 
     this.state = seededState || createInitialState();
-    // Always keep config reference fresh
     this.state.config = CONFIG;
 
     this._tickInterval = null;
@@ -418,6 +443,7 @@ class Lobby {
   _tickStart() {
     this._tickInterval = setInterval(() => this.processTick(), TICK_MS);
   }
+
   _tickStop() {
     if (this._tickInterval) clearInterval(this._tickInterval);
     this._tickInterval = null;
@@ -435,7 +461,6 @@ class Lobby {
   addOrReconnectPlayer(playerId, playerName, role, ws) {
     const id = String(playerId);
 
-    // If exists -> reconnect socket
     if (this.players.has(id)) {
       const p = this.players.get(id);
       p.ws = ws;
@@ -445,7 +470,9 @@ class Lobby {
       return { ok: true, reconnect: true };
     }
 
-    if (this.players.size >= this.maxPlayers) return { ok: false, message: "Lobby voll" };
+    if (this.players.size >= this.maxPlayers) {
+      return { ok: false, message: "Lobby voll" };
+    }
 
     this.players.set(id, {
       id,
@@ -460,11 +487,8 @@ class Lobby {
   }
 
   removePlayer(playerId) {
-    const id = String(playerId);
-    const p = this.players.get(id);
+    const p = this.players.get(String(playerId));
     if (p) {
-      // Keep entry but mark offline? For reconnect + lobby list UX:
-      // We keep player record but remove ws to avoid memory leak.
       p.ws = null;
       p.lastSeenTick = this.state.tick;
     }
@@ -482,12 +506,12 @@ class Lobby {
   async broadcastState() {
     const stateCopy = JSON.parse(JSON.stringify(this.state));
     delete stateCopy.config;
-  
+
     for (const p of this.players.values()) {
       if (!p.ws || p.ws.readyState !== WebSocket.OPEN) continue;
-  
+
       const prog = await getPlayerProgress(p.id);
-  
+
       p.ws.send(
         JSON.stringify({
           type: "update_state",
@@ -497,7 +521,7 @@ class Lobby {
             era: stateCopy.era,
             difficultyMultiplier: stateCopy.difficulty,
             resources: stateCopy.resources,
-            ressourcen: stateCopy.resources, // legacy key
+            ressourcen: stateCopy.resources,
             map: stateCopy.map,
             stats: stateCopy.stats,
           },
@@ -508,34 +532,6 @@ class Lobby {
       );
     }
   }
-
-  
-    for (const p of lobby.players.values()) {
-      switch (p.role) {
-        case "engineer":
-          bonuses.energyMult += 0.05;
-          break;
-        case "logistician":
-          bonuses.foodMult += 0.05;
-          break;
-        case "researcher":
-          bonuses.researchMult += 0.05;
-          break;
-        case "diplomat":
-          bonuses.stabilityMult += 0.05;
-          break;
-      }
-    }
-  
-    // Cap, damit es nicht eskaliert
-    bonuses.energyMult = Math.min(1.3, bonuses.energyMult);
-    bonuses.foodMult = Math.min(1.3, bonuses.foodMult);
-    bonuses.researchMult = Math.min(1.3, bonuses.researchMult);
-    bonuses.stabilityMult = Math.min(1.3, bonuses.stabilityMult);
-  
-    return bonuses;
-  }
-
   
   async processTick() {
     // no instant "event spam": we don't inject events here yet
