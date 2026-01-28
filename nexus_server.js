@@ -413,9 +413,45 @@ class Lobby {
     }
   }
 
+  function computeRoleBonuses(lobby) {
+    const bonuses = {
+      energyMult: 1,
+      foodMult: 1,
+      researchMult: 1,
+      stabilityMult: 1,
+    };
+  
+    for (const p of lobby.players.values()) {
+      switch (p.role) {
+        case "engineer":
+          bonuses.energyMult += 0.05;
+          break;
+        case "logistician":
+          bonuses.foodMult += 0.05;
+          break;
+        case "researcher":
+          bonuses.researchMult += 0.05;
+          break;
+        case "diplomat":
+          bonuses.stabilityMult += 0.05;
+          break;
+      }
+    }
+  
+    // Cap, damit es nicht eskaliert
+    bonuses.energyMult = Math.min(1.3, bonuses.energyMult);
+    bonuses.foodMult = Math.min(1.3, bonuses.foodMult);
+    bonuses.researchMult = Math.min(1.3, bonuses.researchMult);
+    bonuses.stabilityMult = Math.min(1.3, bonuses.stabilityMult);
+  
+    return bonuses;
+  }
+
+  
   async processTick() {
     // no instant "event spam": we don't inject events here yet
     const dt = TICK_MS / 1000;
+    this.state.roleBonuses = computeRoleBonuses(this);
     tickState(this.state, dt);
 
 
