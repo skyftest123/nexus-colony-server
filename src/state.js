@@ -351,13 +351,10 @@ function computeProductionAndMaintenance(state, dt) {
   // EVENT SYSTEM
   // =====================
   const tick = state.tick;
-  if (inst.condition < 30 && !inst._warnedLowCondition) {
-    inst._warnedLowCondition = true;
-    state.lastTickNotes.push({
-      type: "wear",
-      msg: `⚠️ Gebäude stark beschädigt (${inst.type})`,
-    });
-  }
+  const ps = state.prestigeShop || {};
+  const shopEventResist = ps.eventResist || 1;
+
+  
   // Event starten (zufällig)
   if (!state.activeEvent) {
     const EVENT_CHANCE_PER_TICK = 0.015; // ~1.5 %
@@ -385,23 +382,14 @@ function computeProductionAndMaintenance(state, dt) {
         break;
   
       case "food_crisis":
-        state.resources.nahrung -= 0.5 * dt;
-        break;
-  
-      case "unrest":
-        state.resources.stabilitaet -= 0.4 * dt;
-        break;
-
-      case "food_crisis":
         state.resources.nahrung -= 0.5 * shopEventResist * dt;
         break;
-      
+  
       case "unrest":
         state.resources.stabilitaet -= 0.4 * shopEventResist * dt;
         break;
     }
   
-    // Event endet
     if (tick >= state.activeEvent.endsAtTick) {
       state.lastTickNotes.push({
         type: "event_end",
@@ -419,10 +407,8 @@ function computeProductionAndMaintenance(state, dt) {
   const researchMult = rb.researchMult || 1;
   const stabilityMult = rb.stabilityMult || 1;
   const pMult = Number.isFinite(prestigeMult) && prestigeMult > 0 ? prestigeMult : 1;
-  const ps = state.prestigeShop || {};
   const shopProdMult = ps.prodMult || 1;
   const shopUpkeepMult = ps.upkeepMult || 1;
-  const shopEventResist = ps.eventResist || 1;
 
 
   // ---- Baseline: Stabilität sinkt NICHT permanent schnell.
@@ -436,6 +422,7 @@ function computeProductionAndMaintenance(state, dt) {
 
   // ---- Produktion & Unterhalt aus Gebäuden (pro Sekunde * dt)
   const instances = state.map.instances;
+  const diff = Number(state.difficulty || 1);
 
   for (const inst of instances) {
     const b = cfg.buildings[inst.type];
@@ -445,7 +432,7 @@ function computeProductionAndMaintenance(state, dt) {
     // -----------------------------
     const WEAR_PER_SEC = 0.015; // ~0.9 pro Minute
     inst.condition = clamp(
-      (inst.condition ?? 100) - WEAR_PER_SEC * state.difficulty * dt,
+      (inst.condition ?? 100) - WEAR_PER_SEC * diff * dt,
       0,
       100
     );
@@ -605,7 +592,10 @@ function clamp(n, a, b) {
 // -----------------------------
 function createInitialState(opts = {}) {
   const config = loadConfigs();
-
+  const startBoost = 1 + (state.prestige?.level || 0) * 0.05;
+  state.resources.energie *= startBoost;
+  state.resources.nahrung *= startBoost;
+  
   const state = {
     config,
     tick: 0,
@@ -613,7 +603,6 @@ function createInitialState(opts = {}) {
     difficulty: 1,
     era: "proto",
     activeEvent: null, // { type, endsAtTick, data }
-    activeEvent: null,
     lastTickNotes: [],
     prestigeShop: {
       prodMult: 1,
@@ -633,17 +622,12 @@ function createInitialState(opts = {}) {
       forschung: 0,
       stabilitaet: 100,
     },
-    const startBoost = 1 + (state.prestige?.level || 0) * 0.05;
-    state.resources.energie *= startBoost;
-    state.resources.nahrung *= startBoost;
-
      // Prestige (server-authoritative)
     prestige: {
       level: 0,      // wird vom Server gesetzt
       mult: 1,       // wird vom Server gesetzt
     },
     map: createEmptyMap(opts.mapWidth || 12, opts.mapHeight || 8),
-    lastTickNotes: [],
     stats: {
       buildingsPlaced: 0,
       buildingsUpgraded: 0,
