@@ -528,6 +528,10 @@ function createInitialState(opts = {}) {
       forschung: 0,
       stabilitaet: 100,
     },
+    const startBoost = 1 + (state.prestige?.level || 0) * 0.05;
+    state.resources.energie *= startBoost;
+    state.resources.nahrung *= startBoost;
+
      // Prestige (server-authoritative)
     prestige: {
       level: 0,      // wird vom Server gesetzt
