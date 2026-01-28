@@ -592,18 +592,7 @@ function clamp(n, a, b) {
 // -----------------------------
 function createInitialState(opts = {}) {
   const config = loadConfigs();
-  // ---- apply prestige start boost (must be AFTER state is created)
-  const prestigeLevel = Math.max(0, Math.floor(Number(state.prestige?.level || 0)));
-  const startBoost = 1 + prestigeLevel * 0.05;
-  
-  // If you only want this to boost starting resources (and not re-apply later),
-  // do it once here:
-  state.resources.energie = Math.floor((state.resources.energie || 0) * startBoost);
-  state.resources.nahrung = Math.floor((state.resources.nahrung || 0) * startBoost);
-  state.resources.bevoelkerung = Math.floor((state.resources.bevoelkerung || 0) * startBoost);
-  state.resources.energie *= startBoost;
-  state.resources.nahrung *= startBoost;
-  
+
   const state = {
     config,
     tick: 0,
@@ -645,6 +634,11 @@ function createInitialState(opts = {}) {
     _popGrowthCarry: 0,
   };
 
+  // NOTE: Kein Prestige-StartBoost hier anwenden.
+  // Der Server setzt prestigeLevel/mult NACH createInitialState() (z.B. beim Era-Reset),
+  // daher würde ein Boost hier meistens ins Leere laufen oder doppelt passieren.
+  // Wenn du StartBoost willst, mach es im Server direkt nach `fresh.prestige = ...`.
+
   const starter = [
     { id: "campfire", x: 1, y: 1 },
     { id: "hut", x: 3, y: 1 },
@@ -677,6 +671,7 @@ function createInitialState(opts = {}) {
 
   return state;
 }
+
 
 // -----------------------------
 // Exports
