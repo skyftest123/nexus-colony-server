@@ -101,7 +101,7 @@
         "forschung": 0
       },
       "produces": {
-        "forschung": 1.2
+        "forschung": 2.5
       },
       "maintenance": {
         "energie": 0.3
@@ -118,6 +118,6 @@
       "produces": { "energie": 60 },
       "visual": "fusion_core",
       "description": "Ultimative Energiequelle mit starken Effekten."
-    }
+    },
   }
 }
