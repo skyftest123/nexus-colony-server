@@ -1173,6 +1173,10 @@ async function handleUnlockEra(ws, data) {
     level: prog.prestigeLevel,
     mult: prog.prestigeMult,
   };
+  const startBoost = 1 + (fresh.prestige.level || 0) * 0.05;
+  fresh.resources.energie = Math.floor((fresh.resources.energie || 0) * startBoost);
+  fresh.resources.nahrung = Math.floor((fresh.resources.nahrung || 0) * startBoost);
+  fresh.resources.bevoelkerung = Math.floor((fresh.resources.bevoelkerung || 0) * startBoost);
   // apply prestige shop effects after reset
   fresh.prestigeShop ||= { prodMult: 1, upkeepMult: 1, eventResist: 1 };
   
