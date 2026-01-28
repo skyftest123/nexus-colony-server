@@ -346,6 +346,55 @@ function unlockNextEra(state) {
 // Tick / Economy (dt-basiert)
 // -----------------------------
 function computeProductionAndMaintenance(state, dt) {
+  // =====================
+  // EVENT SYSTEM
+  // =====================
+  const tick = state.tick;
+  
+  // Event starten (zufällig)
+  if (!state.activeEvent) {
+    const EVENT_CHANCE_PER_TICK = 0.015; // ~1.5 %
+    if (Math.random() < EVENT_CHANCE_PER_TICK) {
+      const events = ["blackout", "food_crisis", "unrest"];
+      const type = events[Math.floor(Math.random() * events.length)];
+  
+      state.activeEvent = {
+        type,
+        endsAtTick: tick + 20, // ca. 30 Sekunden bei 1.5s Tick
+      };
+  
+      state.lastTickNotes.push({
+        type: "event",
+        msg: `⚠️ Krise: ${type}`,
+      });
+    }
+  }
+  
+  // Event anwenden
+  if (state.activeEvent) {
+    switch (state.activeEvent.type) {
+      case "blackout":
+        state.resources.energie -= 0.6 * dt;
+        break;
+  
+      case "food_crisis":
+        state.resources.nahrung -= 0.5 * dt;
+        break;
+  
+      case "unrest":
+        state.resources.stabilitaet -= 0.4 * dt;
+        break;
+    }
+  
+    // Event endet
+    if (tick >= state.activeEvent.endsAtTick) {
+      state.lastTickNotes.push({
+        type: "event_end",
+        msg: `✅ Krise beendet: ${state.activeEvent.type}`,
+      });
+      state.activeEvent = null;
+    }
+  }
   const cfg = state.config;
   const r = state.resources;
   const prestigeMult = Number(state?.prestige?.mult || 1);
@@ -521,6 +570,15 @@ function createInitialState(opts = {}) {
     createdAt: Date.now(),
     difficulty: 1,
     era: "proto",
+    activeEvent: null, // { type, endsAtTick, data }
+    activeEvent: null,
+    lastTickNotes: [],
+    roleBonuses: {
+      energyMult: 1,
+      foodMult: 1,
+      researchMult: 1,
+      stabilityMult: 1,
+    },
     resources: {
       energie: 120,
       nahrung: 120,
