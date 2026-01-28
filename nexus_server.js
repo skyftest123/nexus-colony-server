@@ -177,6 +177,32 @@ function computeRoleBonuses(lobby) {
     stabilityMult: 1,
   };
 
+  for (const p of lobby.players.values()) {
+    switch (p.role) {
+      case "engineer":
+        bonuses.energyMult += 0.05;
+        break;
+      case "logistician":
+        bonuses.foodMult += 0.05;
+        break;
+      case "researcher":
+        bonuses.researchMult += 0.05;
+        break;
+      case "diplomat":
+        bonuses.stabilityMult += 0.05;
+        break;
+    }
+  }
+
+  // Caps (damit es nicht eskaliert)
+  bonuses.energyMult = Math.min(1.3, bonuses.energyMult);
+  bonuses.foodMult = Math.min(1.3, bonuses.foodMult);
+  bonuses.researchMult = Math.min(1.3, bonuses.researchMult);
+  bonuses.stabilityMult = Math.min(1.3, bonuses.stabilityMult);
+
+  return bonuses;
+}
+
 async function handleChallengeResolve(ws, data) {
   const lr = requireLobby(ws);
   if (!lr.ok) return safeSend(ws, { type: "error", message: lr.err });
@@ -227,6 +253,7 @@ async function handleChallengeResolve(ws, data) {
   await saveLobbySnapshot(lobby.id, lobby);
   await lobby.broadcastState();
 }
+
 
 
 // =====================================
