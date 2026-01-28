@@ -207,6 +207,9 @@ async function loadLobbySnapshot(lobbyId) {
     const raw = await redis.get(kLobby(lobbyId));
     if (!raw) return null;
     const data = JSON.parse(raw);
+    if (data?.state?.prestige) {
+      data.state.prestige = data.state.prestige;
+    }
     // Ensure config stays current (don’t persist config)
     if (data?.state) {
       data.state.config = CONFIG;
@@ -229,6 +232,7 @@ async function saveLobbySnapshot(lobbyId, lobbyObj) {
       resources: lobbyObj.state.resources,
       map: lobbyObj.state.map,
       stats: lobbyObj.state.stats,
+      prestige: lobbyObj.state.prestige,
       // lightweight roster for UI list
       players: Array.from(lobbyObj.players.values()).map((p) => ({
         id: p.id,
@@ -591,6 +595,13 @@ async function handleJoinLobby(ws, data) {
   ws.playerId = playerId;
 
   const result = lobby.addOrReconnectPlayer(playerId, playerName, role, ws);
+  // ensure prestige is present in lobby state (authoritative via player progress)
+  const prog = await getPlayerProgress(playerId);
+  if (!lobby.state.prestige) lobby.state.prestige = { level: 0, mult: 1 };
+
+  const lvl = Math.max(0, Math.floor(Number(prog.prestigeLevel || 0)));
+  const mult = Number(prog.prestigeMult || calcPrestige
+
   if (!result.ok) return safeSend(ws, { type: "error", message: result.message || "Join fehlgeschlagen" });
 
   await addLobbyToPlayerIndex(playerId, lobbyId);
