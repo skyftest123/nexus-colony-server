@@ -90,6 +90,25 @@
       "visual": "habitat_glass",
       "description": "Vertikale Wohnkomplexe."
     },
+    "research_lab": {
+      "name": "Forschungslabor",
+      "icon": "🧪",
+      "era": "antique",
+      "footprint": { "w": 2, "h": 2 },
+      "cost": {
+        "energie": 40,
+        "nahrung": 20,
+        "forschung": 0
+      },
+      "produces": {
+        "forschung": 1.2
+      },
+      "maintenance": {
+        "energie": 0.3
+      },
+      "tags": ["science", "lab"],
+      "description": "Ermöglicht strukturierte Forschung und technologische Durchbrüche."
+    }
     "fusion_reactor": {
       "name": "Fusionsreaktor",
       "icon": "🔆",
