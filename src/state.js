@@ -381,7 +381,7 @@ function computeProductionAndMaintenance(state, dt) {
   if (state.activeEvent) {
     switch (state.activeEvent.type) {
       case "blackout":
-        state.resources.energie -= 0.6 * dt;
+        state.resources.energie -= 0.6 * shopEventResist * dt;
         break;
   
       case "food_crisis":
@@ -411,6 +411,10 @@ function computeProductionAndMaintenance(state, dt) {
   const researchMult = rb.researchMult || 1;
   const stabilityMult = rb.stabilityMult || 1;
   const pMult = Number.isFinite(prestigeMult) && prestigeMult > 0 ? prestigeMult : 1;
+  const ps = state.prestigeShop || {};
+  const shopProdMult = ps.prodMult || 1;
+  const shopUpkeepMult = ps.upkeepMult || 1;
+  const shopEventResist = ps.eventResist || 1;
 
 
   // ---- Baseline: Stabilität sinkt NICHT permanent schnell.
@@ -447,12 +451,12 @@ function computeProductionAndMaintenance(state, dt) {
       if (k === "energie") mult *= energyMult;
       if (k === "nahrung") mult *= foodMult;
       if (k === "forschung") mult *= researchMult;
-      r[k] = (r[k] || 0) + v * levelMult * conditionMult * mult * dt;
+      r[k] = (r[k] || 0) + v * levelMult * conditionMult * mult * shopProdMult * dt;
     }
 
 
     for (const [k, v] of Object.entries(b.maintenance || {})) {
-      r[k] = (r[k] || 0) - v * (1 + (lvl - 1) * 0.12) * dt;
+      r[k] = (r[k] || 0) - v * (1 + (lvl - 1) * 0.12) * shopUpkeepMult * dt;
     }
   }
 
@@ -603,6 +607,11 @@ function createInitialState(opts = {}) {
     activeEvent: null, // { type, endsAtTick, data }
     activeEvent: null,
     lastTickNotes: [],
+    prestigeShop: {
+      prodMult: 1,
+      upkeepMult: 1,
+      eventResist: 1,
+    },
     roleBonuses: {
       energyMult: 1,
       foodMult: 1,
