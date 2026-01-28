@@ -105,6 +105,36 @@ function kPlayerLobbies(playerId) {
 // =====================================
 // Configs (skills/eras/buildings)
 // =====================================
+const PRESTIGE_SHOP = {
+  prod_boost: {
+    id: "prod_boost",
+    name: "Produktionsschub",
+    maxLevel: 5,
+    cost: (lvl) => 2 + lvl,        // 2,3,4,5,6
+    effect: (state, lvl) => {
+      state.prestigeShop.prodMult = 1 + lvl * 0.05; // +5% pro Level
+    },
+  },
+  upkeep_reduction: {
+    id: "upkeep_reduction",
+    name: "Wartungsoptimierung",
+    maxLevel: 4,
+    cost: (lvl) => 3 + lvl,        // 3,4,5,6
+    effect: (state, lvl) => {
+      state.prestigeShop.upkeepMult = 1 - lvl * 0.08; // −8% pro Level
+    },
+  },
+  event_resilience: {
+    id: "event_resilience",
+    name: "Krisenresistenz",
+    maxLevel: 3,
+    cost: (lvl) => 4 + lvl * 2,    // 4,6,8
+    effect: (state, lvl) => {
+      state.prestigeShop.eventResist = 1 - lvl * 0.12; // −12% Event-Schaden
+    },
+  },
+};
+
 const CONFIG = loadConfigs();
 const SKILL_INDEX = new Map(CONFIG.skills.map((s) => [s.id, s]));
 
@@ -200,6 +230,11 @@ async function getPlayerProgress(playerId) {
     prestigeLevel: 0,
     prestigeShards: 0,
     prestigeMult: 1,
+    prestigeShop: {
+      prod_boost: 0,
+      upkeep_reduction: 0,
+      event_resilience: 0,
+    },
     lifetime: {
       buildingsPlaced: 0,
       buildingsUpgraded: 0,
@@ -565,6 +600,9 @@ async function handleMessage(ws, data) {
     case "list_my_colonies":
       return handleListMyColonies(ws, data);
 
+    case "repair_building":
+      return handleRepairBuilding(ws, data);
+      
     // Placement building on grid
     case "place_building":
       return handlePlaceBuilding(ws, data);
@@ -843,6 +881,58 @@ async function handleUpgradeBuilding(ws, data) {
   await saveLobbySnapshot(lobby.id, lobby);
   await lobby.broadcastState();
 }
+
+async function handleRepairBuilding(ws, data) {
+  const lr = requireLobby(ws);
+  if (!lr.ok) return safeSend(ws, { type: "error", message: lr.err });
+  const lobby = lr.lobby;
+
+  const instanceId = String(data.instanceId || "");
+  if (!instanceId) return safeSend(ws, { type: "error", message: "instanceId fehlt" });
+
+  const inst = lobby.state.map.instances.find(i => i.id === instanceId);
+  if (!inst) return safeSend(ws, { type: "error", message: "Gebäude nicht gefunden" });
+
+  const missing = 100 - (inst.condition ?? 100);
+  if (missing <= 0) {
+    return safeSend(ws, {
+      type: "notification",
+      severity: "info",
+      message: "Gebäude ist bereits in gutem Zustand",
+    });
+  }
+
+  // Reparaturkosten (skalieren sanft)
+  const cost = {
+    energie: Math.ceil(missing * 0.3),
+    nahrung: Math.ceil(missing * 0.15),
+  };
+
+  if (!hasResources(lobby.state.resources, cost)) {
+    return safeSend(ws, {
+      type: "notification",
+      severity: "warning",
+      message: "Nicht genug Ressourcen für Reparatur",
+    });
+  }
+
+  // bezahlen + reparieren
+  for (const [k, v] of Object.entries(cost)) {
+    lobby.state.resources[k] -= v;
+  }
+  inst.condition = 100;
+  delete inst._warnedLowCondition;
+
+  lobby.broadcast({
+    type: "notification",
+    severity: "success",
+    message: `🛠️ Gebäude repariert`,
+  });
+
+  await saveLobbySnapshot(lobby.id, lobby);
+  await lobby.broadcastState();
+}
+
 
 async function handleDemolishBuilding(ws, data) {
   const lr = requireLobby(ws);
