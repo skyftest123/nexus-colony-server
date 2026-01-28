@@ -772,9 +772,21 @@ async function handleJoinLobby(ws, data) {
   const prog = await getPlayerProgress(playerId);
   if (!lobby.state.prestige) lobby.state.prestige = { level: 0, mult: 1 };
 
-  const lvl = Math.max(0, Math.floor(Number(prog.prestigeLevel || 0)));
-  const mult = Number(prog.prestigeMult || calcPrestige
-
+  // ---- apply prestige core bonus
+  lobby.state.prestige = {
+    level: prog.prestigeLevel || 0,
+    mult: prog.prestigeMult || 1,
+  };
+  
+  // ---- apply prestige shop effects
+  lobby.state.prestigeShop ||= { prodMult: 1, upkeepMult: 1, eventResist: 1 };
+  
+  for (const [id, lvl] of Object.entries(prog.prestigeShop || {})) {
+    const item = PRESTIGE_SHOP[id];
+    if (item && lvl > 0) {
+      item.effect(lobby.state, lvl);
+    }
+  }
   if (!result.ok) return safeSend(ws, { type: "error", message: result.message || "Join fehlgeschlagen" });
 
   await addLobbyToPlayerIndex(playerId, lobbyId);
@@ -1111,6 +1123,15 @@ async function handleUnlockEra(ws, data) {
     level: prog.prestigeLevel,
     mult: prog.prestigeMult,
   };
+  // apply prestige shop effects after reset
+  fresh.prestigeShop ||= { prodMult: 1, upkeepMult: 1, eventResist: 1 };
+  
+  for (const [id, lvl] of Object.entries(prog.prestigeShop || {})) {
+    const item = PRESTIGE_SHOP[id];
+    if (item && lvl > 0) {
+      item.effect(fresh, lvl);
+    }
+  }
 
   lobby.state = fresh;
 
