@@ -23,6 +23,8 @@
 
 const http = require("http");
 const WebSocket = require("ws");
+const { hasResources } = require("./src/game_rules");
+
 
 // --- Config ---
 const PORT = Number(process.env.PORT || 3000);
@@ -165,6 +167,15 @@ function grantSkillPoints(prog, amount) {
   if (!add) return prog;
   prog.skillPoints = Math.max(0, Math.floor(Number(prog.skillPoints || 0))) + add;
   return prog;
+}
+
+function computeRoleBonuses(lobby) {
+    const bonuses = {
+      energyMult: 1,
+      foodMult: 1,
+      researchMult: 1,
+      stabilityMult: 1,
+    };
 }
 
 async function handleChallengeResolve(ws, data) {
@@ -447,14 +458,6 @@ class Lobby {
       );
     }
   }
-
-  function computeRoleBonuses(lobby) {
-    const bonuses = {
-      energyMult: 1,
-      foodMult: 1,
-      researchMult: 1,
-      stabilityMult: 1,
-    };
   
     for (const p of lobby.players.values()) {
       switch (p.role) {
