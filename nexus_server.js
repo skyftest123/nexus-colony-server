@@ -140,6 +140,186 @@ const PRESTIGE_SHOP = {
 const CONFIG = loadConfigs();
 const SKILL_INDEX = new Map(CONFIG.skills.map((s) => [s.id, s]));
 
+function normalizeResourceKey(key) {
+  const map = {
+    energy: "energie",
+    food: "nahrung",
+    research: "forschung",
+    stability: "stabilitaet",
+    population: "bevoelkerung",
+  };
+  return map[String(key)] || String(key);
+}
+
+function buildEmptySkillModifiers() {
+  return {
+    resourceEfficiencyMult: 1,
+    energyProdMult: 1,
+    foodProdMult: 1,
+    researchProdMult: 1,
+    maintenanceCostMult: 1,
+    foodConsumptionMult: 1,
+    stabilityLossEventsMult: 1,
+    stabilityGainFlat: 0,
+    populationGrowthMult: 1,
+    resourceFloorFood: 0,
+    resourceFloorEnergy: 0,
+    stabilityFloor: 0,
+    resourceFlat: {},
+  };
+}
+
+function applySkillModifier(mods, key, op, value) {
+  if (!Number.isFinite(value)) return;
+  switch (key) {
+    case "resource_efficiency_mult":
+      if (op === "mul") mods.resourceEfficiencyMult *= value;
+      break;
+    case "energy_prod_mult":
+      if (op === "mul") mods.energyProdMult *= value;
+      break;
+    case "food_consumption_mult":
+      if (op === "mul") mods.foodConsumptionMult *= value;
+      break;
+    case "research_speed_mult":
+      if (op === "mul") mods.researchProdMult *= value;
+      break;
+    case "maintenance_cost_mult":
+      if (op === "mul") mods.maintenanceCostMult *= value;
+      break;
+    case "stability_loss_events_mult":
+      if (op === "mul") mods.stabilityLossEventsMult *= value;
+      break;
+    case "stability_gain_flat":
+      if (op === "add") mods.stabilityGainFlat += value;
+      break;
+    case "population_growth_mult":
+      if (op === "mul") mods.populationGrowthMult *= value;
+      break;
+    case "resource_floor_food":
+      if (op === "set_min") mods.resourceFloorFood = Math.max(mods.resourceFloorFood, value);
+      break;
+    case "resource_floor_energy":
+      if (op === "set_min") mods.resourceFloorEnergy = Math.max(mods.resourceFloorEnergy, value);
+      break;
+    case "stability_floor":
+      if (op === "set_min") mods.stabilityFloor = Math.max(mods.stabilityFloor, value);
+      break;
+    case "income_energy_flat":
+      if (op === "add") {
+        const keyName = normalizeResourceKey("energy");
+        mods.resourceFlat[keyName] = (mods.resourceFlat[keyName] || 0) + value;
+      }
+      break;
+    default:
+      break;
+  }
+}
+
+function computeSkillModifiersForLobby(lobby) {
+  const mods = buildEmptySkillModifiers();
+  for (const p of lobby.players.values()) {
+    const skillIds = Array.isArray(p.skills) ? p.skills : [];
+    for (const id of skillIds) {
+      const skill = SKILL_INDEX.get(id);
+      if (!skill || !Array.isArray(skill.effects)) continue;
+      for (const effect of skill.effects) {
+        if (effect?.type !== "modifier") continue;
+        const key = String(effect.key || "");
+        const op = String(effect.op || "");
+        const value = Number(effect.value);
+        applySkillModifier(mods, key, op, value);
+      }
+    }
+  }
+  return mods;
+}
+
+const MILESTONES = [
+  { id: "pop_25", label: "Bevölkerung 25", kind: "resource", key: "bevoelkerung", target: 25, reward: { skillPoints: 1 } },
+  { id: "food_300", label: "Nahrung 300", kind: "resource", key: "nahrung", target: 300, reward: { skillPoints: 1 } },
+  { id: "energy_250", label: "Energie 250", kind: "resource", key: "energie", target: 250, reward: { skillPoints: 1 } },
+  { id: "research_40", label: "Forschung 40", kind: "resource", key: "forschung", target: 40, reward: { skillPoints: 1 } },
+  { id: "build_10", label: "10 Gebäude gebaut", kind: "lifetime", key: "buildingsPlaced", target: 10, reward: { skillPoints: 1 } },
+  { id: "auto_repair", label: "Automatisierung: Auto-Reparatur", kind: "lifetime", key: "buildingsPlaced", target: 20, reward: { skillPoints: 2, automation: { autoRepair: true } } },
+  { id: "upgrade_5", label: "5 Upgrades", kind: "lifetime", key: "buildingsUpgraded", target: 5, reward: { skillPoints: 1 } },
+  { id: "stability_90", label: "Stabilität 90 halten", kind: "resource", key: "stabilitaet", target: 90, reward: { skillPoints: 1 } },
+  { id: "era_ancient", label: "Epoche Antike erreicht", kind: "era", key: "ancient", target: 1, reward: { skillPoints: 2, prestigeShards: 1 } },
+  { id: "pop_120", label: "Bevölkerung 120", kind: "resource", key: "bevoelkerung", target: 120, reward: { skillPoints: 2 } },
+  { id: "food_1200", label: "Nahrung 1200", kind: "resource", key: "nahrung", target: 1200, reward: { skillPoints: 2, prestigeShards: 1 } },
+  { id: "energy_900", label: "Energie 900", kind: "resource", key: "energie", target: 900, reward: { skillPoints: 2 } },
+  { id: "research_250", label: "Forschung 250", kind: "resource", key: "forschung", target: 250, reward: { skillPoints: 2, prestigeShards: 1 } },
+  { id: "build_40", label: "40 Gebäude gebaut", kind: "lifetime", key: "buildingsPlaced", target: 40, reward: { skillPoints: 3 } },
+  { id: "upgrade_20", label: "20 Upgrades", kind: "lifetime", key: "buildingsUpgraded", target: 20, reward: { skillPoints: 3 } },
+  { id: "era_industrial", label: "Industriezeitalter erreicht", kind: "era", key: "industrial", target: 1, reward: { skillPoints: 4, prestigeShards: 2 } },
+];
+
+function getMilestoneProgress(state, progress, milestone) {
+  if (milestone.kind === "resource") {
+    const current = Number(state?.resources?.[milestone.key] || 0);
+    return { current, target: milestone.target };
+  }
+  if (milestone.kind === "lifetime") {
+    const current = Number(progress?.lifetime?.[milestone.key] || 0);
+    return { current, target: milestone.target };
+  }
+  if (milestone.kind === "era") {
+    const currentIdx = eraIndexById(state?.era);
+    const targetIdx = eraIndexById(milestone.key);
+    return { current: currentIdx >= targetIdx ? milestone.target : 0, target: milestone.target };
+  }
+  return { current: 0, target: milestone.target || 1 };
+}
+
+function getMilestoneStatusList(state, progress) {
+  const unlocked = new Set(Array.isArray(progress?.milestones) ? progress.milestones : []);
+  return MILESTONES.map((m) => {
+    const { current, target } = getMilestoneProgress(state, progress, m);
+    return {
+      id: m.id,
+      label: m.label,
+      current,
+      target,
+      done: unlocked.has(m.id) || current >= target,
+      reward: m.reward || {},
+    };
+  });
+}
+
+async function evaluateMilestones(lobby, playerId, progress) {
+  const unlocked = new Set(Array.isArray(progress.milestones) ? progress.milestones : []);
+  const newlyUnlocked = [];
+  for (const m of MILESTONES) {
+    if (unlocked.has(m.id)) continue;
+    const { current, target } = getMilestoneProgress(lobby.state, progress, m);
+    if (current >= target) {
+      unlocked.add(m.id);
+      newlyUnlocked.push(m);
+    }
+  }
+
+  if (newlyUnlocked.length === 0) return { changed: false, newlyUnlocked: [] };
+
+  progress.milestones = Array.from(unlocked);
+  for (const m of newlyUnlocked) {
+    if (Number.isFinite(m.reward?.skillPoints)) {
+      grantSkillPoints(progress, m.reward.skillPoints);
+    }
+    if (Number.isFinite(m.reward?.prestigeShards)) {
+      progress.prestigeShards = (progress.prestigeShards || 0) + m.reward.prestigeShards;
+    }
+    if (m.reward?.automation && typeof m.reward.automation === "object") {
+      progress.automation ||= {};
+      for (const [k, v] of Object.entries(m.reward.automation)) {
+        if (v === true) progress.automation[k] = true;
+      }
+    }
+  }
+
+  await savePlayerProgress(playerId, progress);
+  return { changed: true, newlyUnlocked };
+}
+
 // =====================================
 // In-memory runtime lobbies (authoritative)
 // =====================================
@@ -167,6 +347,35 @@ function grantSkillPoints(prog, amount) {
   if (!add) return prog;
   prog.skillPoints = Math.max(0, Math.floor(Number(prog.skillPoints || 0))) + add;
   return prog;
+}
+
+function spendResources(resources, cost) {
+  for (const [k, v] of Object.entries(cost || {})) {
+    const n = Number(v);
+    if (!Number.isFinite(n) || n <= 0) continue;
+    resources[k] = (resources[k] || 0) - n;
+  }
+}
+
+function computeRepairCost(missing) {
+  return {
+    energie: Math.ceil(missing * 0.3),
+    nahrung: Math.ceil(missing * 0.15),
+  };
+}
+
+function applyOfflineProgress(state, seconds, tickMs) {
+  const dtTick = Math.max(0.5, tickMs / 1000);
+  const maxTicks = 240;
+  const ticks = Math.min(Math.floor(seconds / dtTick), maxTicks);
+  for (let i = 0; i < ticks; i++) {
+    tickState(state, dtTick);
+  }
+  const remaining = seconds - ticks * dtTick;
+  if (remaining > 0.1) {
+    tickState(state, remaining);
+  }
+  return ticks;
 }
 
 function computeRoleBonuses(lobby) {
@@ -271,6 +480,12 @@ async function getPlayerProgress(playerId) {
       upkeep_reduction: 0,
       event_resilience: 0,
     },
+    milestones: [],
+    automation: {
+      autoRepair: false,
+    },
+    lastSeenAt: 0,
+    lastDailyRewardAt: 0,
     lifetime: {
       buildingsPlaced: 0,
       buildingsUpgraded: 0,
@@ -293,6 +508,7 @@ async function getPlayerProgress(playerId) {
       ...parsed,
       lifetime: { ...fallback.lifetime, ...(parsed.lifetime || {}) },
       skills: Array.isArray(parsed.skills) ? parsed.skills : [],
+      automation: { ...fallback.automation, ...(parsed.automation || {}) },
     };
   } catch (_) {
     return fallback;
@@ -357,6 +573,9 @@ async function saveLobbySnapshot(lobbyId, lobbyObj) {
       stats: lobbyObj.state.stats,
       prestige: lobbyObj.state.prestige,
       prestigeShop: lobbyObj.state.prestigeShop,
+      activeEvent: lobbyObj.state.activeEvent,
+      special: lobbyObj.state.special,
+      specialBuff: lobbyObj.state.specialBuff,
       // lightweight roster for UI list
       players: Array.from(lobbyObj.players.values()).map((p) => ({
         id: p.id,
@@ -374,31 +593,6 @@ async function saveLobbySnapshot(lobbyId, lobbyObj) {
 // =====================================
 // Lobby class
 // =====================================
-function computeRoleBonuses(lobby) {
-  const bonuses = {
-    energyMult: 1,
-    foodMult: 1,
-    researchMult: 1,
-    stabilityMult: 1,
-  };
-
-  for (const p of lobby.players.values()) {
-    switch (p.role) {
-      case "engineer": bonuses.energyMult += 0.05; break;
-      case "logistician": bonuses.foodMult += 0.05; break;
-      case "researcher": bonuses.researchMult += 0.05; break;
-      case "diplomat": bonuses.stabilityMult += 0.05; break;
-    }
-  }
-
-  bonuses.energyMult = Math.min(1.3, bonuses.energyMult);
-  bonuses.foodMult = Math.min(1.3, bonuses.foodMult);
-  bonuses.researchMult = Math.min(1.3, bonuses.researchMult);
-  bonuses.stabilityMult = Math.min(1.3, bonuses.stabilityMult);
-
-  return bonuses;
-}
-
 function computeRoleBonuses(lobby) {
   const bonuses = {
     energyMult: 1,
@@ -511,6 +705,17 @@ class Lobby {
       if (!p.ws || p.ws.readyState !== WebSocket.OPEN) continue;
 
       const prog = await getPlayerProgress(p.id);
+      const automation = prog.automation || {};
+      const player = this.players.get(p.id);
+      if (player) {
+        player.automation = automation;
+      }
+      const milestoneList = getMilestoneStatusList(stateCopy, prog);
+      const pendingMilestones = milestoneList
+        .filter((m) => !m.done)
+        .sort((a, b) => (a.target - a.current) - (b.target - b.current))
+        .slice(0, 4);
+      const displayMilestones = pendingMilestones.length > 0 ? pendingMilestones : milestoneList.slice(-4);
 
       p.ws.send(
         JSON.stringify({
@@ -524,10 +729,14 @@ class Lobby {
             ressourcen: stateCopy.resources,
             map: stateCopy.map,
             stats: stateCopy.stats,
+            activeEvents: stateCopy.activeEvent ? [stateCopy.activeEvent] : [],
+            special: stateCopy.special,
+            specialBuff: stateCopy.specialBuff,
           },
           players: this.getPlayersList(),
           progress: prog,
           eras: CONFIG.eras,
+          milestones: displayMilestones,
         })
       );
     }
@@ -537,7 +746,47 @@ class Lobby {
     // no instant "event spam": we don't inject events here yet
     const dt = TICK_MS / 1000;
     this.state.roleBonuses = computeRoleBonuses(this);
+    this.state.skillModifiers = computeSkillModifiersForLobby(this);
     tickState(this.state, dt);
+
+    const automationEnabled = Array.from(this.players.values()).some((p) => p.automation?.autoRepair);
+    if (automationEnabled && this.state.tick % 3 === 0) {
+      const instances = Array.isArray(this.state.map?.instances) ? this.state.map.instances : [];
+      let repaired = 0;
+      for (const inst of instances) {
+        if (repaired >= 3) break;
+        const missing = 100 - (inst.condition ?? 100);
+        if (missing < 20) continue;
+        const cost = computeRepairCost(missing);
+        if (!hasResources(this.state.resources, cost)) break;
+        spendResources(this.state.resources, cost);
+        inst.condition = 100;
+        repaired += 1;
+      }
+      if (repaired > 0) {
+        this.broadcast({
+          type: "notification",
+          severity: "info",
+          message: `🤖 Auto-Reparatur durchgeführt (${repaired} Gebäude).`,
+        });
+      }
+    }
+
+    if (this.state.tick % 4 === 0) {
+      for (const p of this.players.values()) {
+        const prog = await getPlayerProgress(p.id);
+        const res = await evaluateMilestones(this, p.id, prog);
+        if (res.changed) {
+          for (const m of res.newlyUnlocked) {
+            this.broadcast({
+              type: "notification",
+              severity: "success",
+              message: `🎯 Ziel erreicht: ${m.label} (+${m.reward?.skillPoints || 0} SP)`,
+            });
+          }
+        }
+      }
+    }
 
 
     // small “always something happens”: if resources increased, UI can pulse; client already does
@@ -611,6 +860,11 @@ wss.on("connection", (ws) => {
       if (lobbyId && lobbies.has(lobbyId)) {
         const lobby = lobbies.get(lobbyId);
         lobby.removePlayer(playerId);
+        if (playerId) {
+          const prog = await getPlayerProgress(playerId);
+          prog.lastSeenAt = Date.now();
+          await savePlayerProgress(playerId, prog);
+        }
         await saveLobbySnapshot(lobbyId, lobby);
       }
     } catch (_) {}
@@ -655,6 +909,9 @@ async function handleMessage(ws, data) {
 
     case "repair_building":
       return handleRepairBuilding(ws, data);
+
+    case "use_special":
+      return handleUseSpecial(ws);
       
     // Placement building on grid
     case "place_building":
@@ -731,6 +988,73 @@ async function handlePrestigeBuy(ws, data) {
   await lobby.broadcastState();
 }
 
+async function handleUseSpecial(ws) {
+  const lr = requireLobby(ws);
+  if (!lr.ok) return safeSend(ws, { type: "error", message: lr.err });
+  const lobby = lr.lobby;
+  const tick = Number(lobby.state.tick || 0);
+
+  lobby.state.special ||= { cooldownUntilTick: 0 };
+  if (tick < lobby.state.special.cooldownUntilTick) {
+    return safeSend(ws, {
+      type: "notification",
+      severity: "warning",
+      message: `Spezialaktion lädt noch (${lobby.state.special.cooldownUntilTick - tick} Ticks).`,
+    });
+  }
+
+  const eraIdx = eraIndexById(lobby.state.era);
+
+  if (lobby.state.activeEvent) {
+    const cost = {
+      energie: 30 + eraIdx * 35,
+      nahrung: 20 + eraIdx * 25,
+    };
+    if (!hasResources(lobby.state.resources, cost)) {
+      return safeSend(ws, {
+        type: "notification",
+        severity: "warning",
+        message: "Nicht genug Ressourcen für Krisen-Notfallmaßnahme.",
+      });
+    }
+    spendResources(lobby.state.resources, cost);
+    const cleared = lobby.state.activeEvent.type;
+    lobby.state.activeEvent = null;
+    lobby.state.special.cooldownUntilTick = tick + 18;
+    lobby.broadcast({
+      type: "notification",
+      severity: "success",
+      message: `🛡️ Krise neutralisiert (${cleared}).`,
+    });
+  } else {
+    const cost = {
+      energie: 45 + eraIdx * 40,
+      nahrung: 30 + eraIdx * 30,
+    };
+    if (!hasResources(lobby.state.resources, cost)) {
+      return safeSend(ws, {
+        type: "notification",
+        severity: "warning",
+        message: "Nicht genug Ressourcen für Overdrive.",
+      });
+    }
+    spendResources(lobby.state.resources, cost);
+    lobby.state.specialBuff = {
+      endsAtTick: tick + 24,
+      prodMult: 1.2 + eraIdx * 0.05,
+    };
+    lobby.state.special.cooldownUntilTick = tick + 32;
+    lobby.broadcast({
+      type: "notification",
+      severity: "success",
+      message: "⚡ Overdrive aktiviert: Produktion erhöht!",
+    });
+  }
+
+  await saveLobbySnapshot(lobby.id, lobby);
+  await lobby.broadcastState();
+}
+
 // =====================================
 // Lobby management
 // =====================================
@@ -755,7 +1079,21 @@ async function handleCreateLobby(ws, data) {
   // ensure progress exists
   const prog = await getPlayerProgress(playerId);
   if (!prog.era) prog.era = "proto";
+  const now = Date.now();
+  if (now - (prog.lastDailyRewardAt || 0) > 1000 * 60 * 60 * 24) {
+    prog.lastDailyRewardAt = now;
+    grantSkillPoints(prog, 1);
+    prog.prestigeShards = (prog.prestigeShards || 0) + 1;
+    safeSend(ws, { type: "notification", severity: "success", message: "🎁 Tagesbonus: +1 SP, +1 Shard" });
+  }
+  prog.lastSeenAt = now;
   await savePlayerProgress(playerId, prog);
+  const playerEntry = lobby.players.get(playerId);
+  if (playerEntry) {
+    playerEntry.skills = Array.isArray(prog.skills) ? prog.skills : [];
+    playerEntry.automation = prog.automation || {};
+  }
+  lobby.state.skillModifiers = computeSkillModifiersForLobby(lobby);
 
   await addLobbyToPlayerIndex(playerId, lobbyId);
 
@@ -790,6 +1128,9 @@ async function handleJoinLobby(ws, data) {
       seeded.resources = snap.resources || seeded.resources;
       seeded.map = snap.map || seeded.map;
       seeded.stats = snap.stats || seeded.stats;
+      seeded.activeEvent = snap.activeEvent || seeded.activeEvent;
+      seeded.special = snap.special || seeded.special;
+      seeded.specialBuff = snap.specialBuff || seeded.specialBuff;
 
       lobby = new Lobby(lobbyId, seeded);
       lobby.createdAt = snap.createdAt || lobby.createdAt;
@@ -820,6 +1161,33 @@ async function handleJoinLobby(ws, data) {
   const result = lobby.addOrReconnectPlayer(playerId, playerName, role, ws);
   // ensure prestige is present in lobby state (authoritative via player progress)
   const prog = await getPlayerProgress(playerId);
+  const now = Date.now();
+  lobby.state.roleBonuses = computeRoleBonuses(lobby);
+  lobby.state.skillModifiers = computeSkillModifiersForLobby(lobby);
+  const elapsedSec = Math.max(0, Math.min(60 * 60 * 4, (now - (prog.lastSeenAt || now)) / 1000));
+  if (elapsedSec > 15) {
+    const before = { ...lobby.state.resources };
+    const ticksSimulated = applyOfflineProgress(lobby.state, elapsedSec, TICK_MS);
+    const after = lobby.state.resources || {};
+    const diffE = Math.max(0, Math.floor((after.energie || 0) - (before.energie || 0)));
+    const diffF = Math.max(0, Math.floor((after.nahrung || 0) - (before.nahrung || 0)));
+    const diffP = Math.max(0, Math.floor((after.bevoelkerung || 0) - (before.bevoelkerung || 0)));
+    const diffR = Math.max(0, Math.floor((after.forschung || 0) - (before.forschung || 0)));
+    safeSend(ws, {
+      type: "notification",
+      severity: "success",
+      message: `⏳ Offline-Fortschritt: +${diffE} Energie, +${diffF} Nahrung, +${diffP} Bevölkerung, +${diffR} Forschung (${Math.floor(elapsedSec)}s, ${ticksSimulated} Ticks).`,
+    });
+  }
+
+  if (now - (prog.lastDailyRewardAt || 0) > 1000 * 60 * 60 * 24) {
+    prog.lastDailyRewardAt = now;
+    grantSkillPoints(prog, 1);
+    prog.prestigeShards = (prog.prestigeShards || 0) + 1;
+    safeSend(ws, { type: "notification", severity: "success", message: "🎁 Tagesbonus: +1 SP, +1 Shard" });
+  }
+  prog.lastSeenAt = now;
+  await savePlayerProgress(playerId, prog);
   if (!lobby.state.prestige) lobby.state.prestige = { level: 0, mult: 1 };
 
   // ---- apply prestige core bonus
@@ -837,6 +1205,12 @@ async function handleJoinLobby(ws, data) {
       item.effect(lobby.state, lvl);
     }
   }
+  const playerEntry = lobby.players.get(playerId);
+  if (playerEntry) {
+    playerEntry.skills = Array.isArray(prog.skills) ? prog.skills : [];
+    playerEntry.automation = prog.automation || {};
+  }
+  lobby.state.skillModifiers = computeSkillModifiersForLobby(lobby);
   if (!result.ok) return safeSend(ws, { type: "error", message: result.message || "Join fehlgeschlagen" });
 
   await addLobbyToPlayerIndex(playerId, lobbyId);
@@ -859,6 +1233,9 @@ async function handleLeaveLobby(ws) {
   const lobby = lobbies.get(lobbyId);
   if (lobby) {
     lobby.removePlayer(playerId);
+    const prog = await getPlayerProgress(playerId);
+    prog.lastSeenAt = Date.now();
+    await savePlayerProgress(playerId, prog);
     await saveLobbySnapshot(lobbyId, lobby);
     await lobby.broadcastState();
   }
@@ -1240,6 +1617,14 @@ async function handleSkillUnlock(ws, data) {
   prog.skills.push(skillId);
 
   await savePlayerProgress(playerId, prog);
+  const lr = requireLobby(ws);
+  if (lr.ok) {
+    const playerEntry = lr.lobby.players.get(playerId);
+    if (playerEntry) {
+      playerEntry.skills = Array.isArray(prog.skills) ? prog.skills : [];
+    }
+    lr.lobby.state.skillModifiers = computeSkillModifiersForLobby(lr.lobby);
+  }
 
   safeSend(ws, {
     type: "skill_unlocked",
@@ -1249,7 +1634,6 @@ async function handleSkillUnlock(ws, data) {
   });
 
   // also broadcast state update if in lobby
-  const lr = requireLobby(ws);
   if (lr.ok) {
     await lr.lobby.broadcastState();
   }
