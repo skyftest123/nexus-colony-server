@@ -138,12 +138,25 @@ function normalizeBuildings(raw) {
   return out;
 }
 
+function normalizeResourceKey(key) {
+  const map = {
+    energy: "energie",
+    food: "nahrung",
+    research: "forschung",
+    stability: "stabilitaet",
+    population: "bevoelkerung",
+  };
+  return map[String(key)] || String(key);
+}
+
 function normalizeResourceBag(bag) {
   if (!bag || typeof bag !== "object") return {};
   const out = {};
   for (const [k, v] of Object.entries(bag)) {
     const n = Number(v);
-    if (Number.isFinite(n) && n !== 0) out[String(k)] = n;
+    if (!Number.isFinite(n) || n === 0) continue;
+    const key = normalizeResourceKey(k);
+    out[key] = (out[key] || 0) + n;
   }
   return out;
 }
@@ -353,6 +366,8 @@ function computeProductionAndMaintenance(state, dt) {
   const tick = state.tick;
   const ps = state.prestigeShop || {};
   const shopEventResist = ps.eventResist || 1;
+  const mods = state.skillModifiers || {};
+  const eventLossMult = Number.isFinite(mods.stabilityLossEventsMult) ? mods.stabilityLossEventsMult : 1;
 
   
   // Event starten (zufällig)
@@ -378,15 +393,15 @@ function computeProductionAndMaintenance(state, dt) {
   if (state.activeEvent) {
     switch (state.activeEvent.type) {
       case "blackout":
-        state.resources.energie -= 0.6 * shopEventResist * dt;
+        state.resources.energie -= 0.6 * shopEventResist * eventLossMult * dt;
         break;
-  
+
       case "food_crisis":
-        state.resources.nahrung -= 0.5 * shopEventResist * dt;
+        state.resources.nahrung -= 0.5 * shopEventResist * eventLossMult * dt;
         break;
-  
+
       case "unrest":
-        state.resources.stabilitaet -= 0.4 * shopEventResist * dt;
+        state.resources.stabilitaet -= 0.4 * shopEventResist * eventLossMult * dt;
         break;
     }
   
@@ -406,9 +421,31 @@ function computeProductionAndMaintenance(state, dt) {
   const foodMult = rb.foodMult || 1;
   const researchMult = rb.researchMult || 1;
   const stabilityMult = rb.stabilityMult || 1;
+  const resourceEfficiencyMult = Number.isFinite(mods.resourceEfficiencyMult) ? mods.resourceEfficiencyMult : 1;
+  const energyProdMult = Number.isFinite(mods.energyProdMult) ? mods.energyProdMult : 1;
+  const foodProdMult = Number.isFinite(mods.foodProdMult) ? mods.foodProdMult : 1;
+  const researchProdMult = Number.isFinite(mods.researchProdMult) ? mods.researchProdMult : 1;
+  const maintenanceCostMult = Number.isFinite(mods.maintenanceCostMult) ? mods.maintenanceCostMult : 1;
+  const foodConsumptionMult = Number.isFinite(mods.foodConsumptionMult) ? mods.foodConsumptionMult : 1;
+  const stabilityGainFlat = Number.isFinite(mods.stabilityGainFlat) ? mods.stabilityGainFlat : 0;
+  const populationGrowthMult = Number.isFinite(mods.populationGrowthMult) ? mods.populationGrowthMult : 1;
+  const resourceFloorFood = Number.isFinite(mods.resourceFloorFood) ? mods.resourceFloorFood : 0;
+  const resourceFloorEnergy = Number.isFinite(mods.resourceFloorEnergy) ? mods.resourceFloorEnergy : 0;
+  const stabilityFloor = Number.isFinite(mods.stabilityFloor) ? mods.stabilityFloor : 0;
   const pMult = Number.isFinite(prestigeMult) && prestigeMult > 0 ? prestigeMult : 1;
   const shopProdMult = ps.prodMult || 1;
   const shopUpkeepMult = ps.upkeepMult || 1;
+  const specialBuff = state.specialBuff;
+  let specialProdMult = 1;
+  if (specialBuff && Number.isFinite(specialBuff.endsAtTick)) {
+    if (tick < specialBuff.endsAtTick) {
+      specialProdMult = Number.isFinite(specialBuff.prodMult) ? specialBuff.prodMult : 1;
+    } else {
+      state.specialBuff = null;
+    }
+  }
+
+  const resourceFlat = mods.resourceFlat || {};
 
 
   // ---- Baseline: Stabilität sinkt NICHT permanent schnell.
@@ -442,17 +479,26 @@ function computeProductionAndMaintenance(state, dt) {
 
 
     for (const [k, v] of Object.entries(b.produces || {})) {
-      let mult = pMult;
-      if (k === "energie") mult *= energyMult;
-      if (k === "nahrung") mult *= foodMult;
-      if (k === "forschung") mult *= researchMult;
+      let mult = pMult * resourceEfficiencyMult * specialProdMult;
+      if (k === "energie") mult *= energyMult * energyProdMult;
+      if (k === "nahrung") mult *= foodMult * foodProdMult;
+      if (k === "forschung") mult *= researchMult * researchProdMult;
       r[k] = (r[k] || 0) + v * levelMult * conditionMult * mult * shopProdMult * dt;
     }
 
 
     for (const [k, v] of Object.entries(b.maintenance || {})) {
-      r[k] = (r[k] || 0) - v * (1 + (lvl - 1) * 0.12) * shopUpkeepMult * dt;
+      r[k] = (r[k] || 0) - v * (1 + (lvl - 1) * 0.12) * maintenanceCostMult * shopUpkeepMult * dt;
     }
+  }
+
+  for (const [k, v] of Object.entries(resourceFlat)) {
+    if (!Number.isFinite(v) || v === 0) continue;
+    r[k] = (r[k] || 0) + v * dt;
+  }
+
+  if (stabilityGainFlat > 0) {
+    r.stabilitaet = clamp((r.stabilitaet || 0) + stabilityGainFlat * dt, 0, 100);
   }
 
   // ---- Bevölkerung verbraucht Nahrung (pro Sekunde * dt)
@@ -461,7 +507,7 @@ function computeProductionAndMaintenance(state, dt) {
   // 0.45 pro Tick war zu hart. Wir machen daraus "pro Sekunde".
   // 0.005 => bei Pop=12: 0.06 Nahrung/Sek (~3.6/Min), Startfood 120 hält ~33 Min ohne Produktion.
   const FOOD_USE_PER_PERSON_PER_SEC = 0.005;
-  const foodUse = pop * FOOD_USE_PER_PERSON_PER_SEC * dt;
+  const foodUse = pop * FOOD_USE_PER_PERSON_PER_SEC * foodConsumptionMult * dt;
   r.nahrung = (r.nahrung || 0) - foodUse;
 
   // ---- Hunger/Starvation: nicht instant 10 Stabilität pro Tick, sondern gestaffelt
@@ -523,7 +569,7 @@ function computeProductionAndMaintenance(state, dt) {
   // Jetzt: 0.0012 pro Sekunde => 0.12%/Sek => ~7.2%/Min (noch spürbar, aber steuerbar)
   if ((r.nahrung || 0) > 40 && (r.stabilitaet || 0) > 35) {
     const POP_GROWTH_PER_SEC = 0.0012; // Anteil pro Sekunde
-    const growthFloat = pop * POP_GROWTH_PER_SEC * dt;
+    const growthFloat = pop * POP_GROWTH_PER_SEC * populationGrowthMult * dt;
 
     state._popGrowthCarry = (state._popGrowthCarry || 0) + growthFloat;
     const add = Math.floor(state._popGrowthCarry);
@@ -537,6 +583,9 @@ function computeProductionAndMaintenance(state, dt) {
 
   // clamp wichtige Ressourcen
   r.stabilitaet = clamp(r.stabilitaet, 0, 100);
+  if (resourceFloorFood > 0) r.nahrung = Math.max(r.nahrung || 0, resourceFloorFood);
+  if (resourceFloorEnergy > 0) r.energie = Math.max(r.energie || 0, resourceFloorEnergy);
+  if (stabilityFloor > 0) r.stabilitaet = Math.max(r.stabilitaet || 0, stabilityFloor);
 
   // Difficulty scaling (tick-basiert belassen; dt egal)
   const t = state.tick;
@@ -601,6 +650,10 @@ function createInitialState(opts = {}) {
     era: "proto",
     activeEvent: null, // { type, endsAtTick, data }
     lastTickNotes: [],
+    special: {
+      cooldownUntilTick: 0,
+    },
+    specialBuff: null,
     prestigeShop: {
       prodMult: 1,
       upkeepMult: 1,
@@ -611,6 +664,21 @@ function createInitialState(opts = {}) {
       foodMult: 1,
       researchMult: 1,
       stabilityMult: 1,
+    },
+    skillModifiers: {
+      resourceEfficiencyMult: 1,
+      energyProdMult: 1,
+      foodProdMult: 1,
+      researchProdMult: 1,
+      maintenanceCostMult: 1,
+      foodConsumptionMult: 1,
+      stabilityLossEventsMult: 1,
+      stabilityGainFlat: 0,
+      populationGrowthMult: 1,
+      resourceFloorFood: 0,
+      resourceFloorEnergy: 0,
+      stabilityFloor: 0,
+      resourceFlat: {},
     },
     resources: {
       energie: 120,
@@ -658,6 +726,7 @@ function createInitialState(opts = {}) {
           type: s.id,
           x: s.x,
           y: s.y,
+          condition: 100,
           w: b.footprint.w,
           h: b.footprint.h,
           level: 1,
