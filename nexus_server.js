@@ -22,6 +22,8 @@
 "use strict";
 
 const http = require("http");
+const fs = require("fs");
+const path = require("path");
 const WebSocket = require("ws");
 const { hasResources } = require("./src/game_rules");
 
@@ -819,14 +821,55 @@ class Lobby {
 // HTTP server (Render needs port bound)
 // =====================================
 const server = http.createServer(async (req, res) => {
-  if (req.url === "/health") {
-    res.writeHead(200, { "Content-Type": "text/plain" });
+  const urlPath = String(req.url || "").split("?")[0];
+  const corsHeaders = {
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Methods": "GET, OPTIONS",
+    "Access-Control-Allow-Headers": "Content-Type",
+  };
+
+  if (req.method === "OPTIONS") {
+    res.writeHead(204, corsHeaders);
+    res.end();
+    return;
+  }
+
+  if (urlPath === "/favicon.ico") {
+    res.writeHead(204, corsHeaders);
+    res.end();
+    return;
+  }
+
+  if (urlPath === "/health") {
+    res.writeHead(200, { "Content-Type": "text/plain", ...corsHeaders });
     res.end("ok");
     return;
   }
 
+  const dataMap = {
+    "/skills.json": "skills.json",
+    "/eras.json": "eras.json",
+    "/buildings.json": "buildings.json",
+    "/data/skills.json": "skills.json",
+    "/data/eras.json": "eras.json",
+    "/data/buildings.json": "buildings.json",
+  };
+  const dataFile = dataMap[urlPath];
+  if (dataFile) {
+    const filePath = path.join(__dirname, "data", dataFile);
+    try {
+      const raw = await fs.promises.readFile(filePath, "utf8");
+      res.writeHead(200, { "Content-Type": "application/json", ...corsHeaders });
+      res.end(raw);
+    } catch (_) {
+      res.writeHead(404, { "Content-Type": "application/json", ...corsHeaders });
+      res.end(JSON.stringify({ error: "Not found" }));
+    }
+    return;
+  }
+
   // Simple landing
-  res.writeHead(200, { "Content-Type": "text/plain" });
+  res.writeHead(200, { "Content-Type": "text/plain", ...corsHeaders });
   res.end("Nexus Colony Server is running.\nWebSocket endpoint: /\n");
 });
 
