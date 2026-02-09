@@ -1,123 +1,920 @@
 {
-  "buildings": {
-    "campfire": {
-      "name": "Lagerfeuer",
-      "icon": "🔥",
-      "era": "proto",
-      "footprint": { "w": 1, "h": 1 },
-      "cost": { "energie": 0, "nahrung": 10 },
-      "produces": { "energie": 2 },
-      "visual": "fire_small",
-      "description": "Erste Energiequelle. Sichtbares Feuer."
+  "meta": {
+    "id": "nexus_colony_skilltree",
+    "version": 1,
+    "layout": "radial_tree",
+    "notes": "40+ Skills, 5 Hauptäste, Koordinaten für Baum-Rendering (Zoom/Pan). Server bleibt Source-of-Truth für Effekte."
+  },
+  "branches": [
+    { "id": "eco", "name": "Wirtschaft & Ressourcen", "color": "#00D4FF", "icon": "coins" },
+    { "id": "build", "name": "Bauen & Infrastruktur", "color": "#B24BF3", "icon": "hammer" },
+    { "id": "soc", "name": "Bevölkerung & Gesellschaft", "color": "#25D18A", "icon": "people" },
+    { "id": "tech", "name": "Technologie & Forschung", "color": "#2D7DFF", "icon": "chip" },
+    { "id": "exp", "name": "Expansion & Umwelt", "color": "#FFD54A", "icon": "leaf" }
+  ],
+  "nodes": [
+    {
+      "id": "core",
+      "name": "Nexus-Kern",
+      "branch": "core",
+      "tier": 0,
+      "cost": 0,
+      "requires": [],
+      "effects": [
+        { "type": "ui_unlock", "value": "skill_tree" }
+      ],
+      "ui": { "x": 0, "y": 0, "icon": "core", "glow": "cyan" }
     },
-    "hut": {
-      "name": "Hütte",
-      "icon": "🛖",
-      "era": "proto",
-      "footprint": { "w": 1, "h": 1 },
-      "cost": { "energie": 5, "nahrung": 20 },
-      "produces": { "bevoelkerung": 2 },
-      "visual": "hut",
-      "description": "Primitive Unterkunft."
+
+    {
+      "id": "eco_root",
+      "name": "Versorgungslogik",
+      "branch": "eco",
+      "tier": 1,
+      "cost": 1,
+      "requires": ["core"],
+      "effects": [
+        { "type": "modifier", "key": "resource_efficiency_mult", "op": "mul", "value": 1.03 },
+        { "type": "visual_unlock", "value": "resource_pulses" }
+      ],
+      "ui": { "x": -140, "y": -30, "icon": "crate" }
     },
-    "farm": {
-      "name": "Farm",
-      "icon": "🌾",
-      "era": "proto",
-      "footprint": { "w": 2, "h": 2 },
-      "cost": { "energie": 20, "nahrung": 0 },
-      "produces": { "nahrung": 8 },
-      "visual": "farm_fields",
-      "description": "Produziert Nahrung mit sichtbaren Feldern."
+    {
+      "id": "build_root",
+      "name": "Bauprotokolle",
+      "branch": "build",
+      "tier": 1,
+      "cost": 1,
+      "requires": ["core"],
+      "effects": [
+        { "type": "modifier", "key": "build_time_mult", "op": "mul", "value": 0.97 },
+        { "type": "visual_unlock", "value": "construction_sparks" }
+      ],
+      "ui": { "x": -20, "y": 150, "icon": "hammer" }
     },
-    "house": {
-      "name": "Haus",
-      "icon": "🏠",
-      "era": "ancient",
-      "footprint": { "w": 1, "h": 1 },
-      "cost": { "energie": 25, "nahrung": 30 },
-      "produces": { "bevoelkerung": 4 },
-      "visual": "stone_house",
-      "description": "Stabile Wohnhäuser."
+    {
+      "id": "soc_root",
+      "name": "Gemeinschaftsrat",
+      "branch": "soc",
+      "tier": 1,
+      "cost": 1,
+      "requires": ["core"],
+      "effects": [
+        { "type": "modifier", "key": "stability_gain_flat", "op": "add", "value": 1 },
+        { "type": "visual_unlock", "value": "population_ambient" }
+      ],
+      "ui": { "x": 150, "y": 25, "icon": "council" }
     },
-    "workshop": {
-      "name": "Werkstatt",
-      "icon": "⚒️",
-      "era": "medieval",
-      "footprint": { "w": 2, "h": 1 },
-      "cost": { "energie": 40, "nahrung": 30 },
-      "produces": { "energie": -2, "research": 2 },
-      "visual": "workshop_smoke",
-      "description": "Erste spezialisierte Produktion."
+    {
+      "id": "tech_root",
+      "name": "Forschungsagenda",
+      "branch": "tech",
+      "tier": 1,
+      "cost": 1,
+      "requires": ["core"],
+      "effects": [
+        { "type": "modifier", "key": "research_speed_mult", "op": "mul", "value": 1.05 },
+        { "type": "visual_unlock", "value": "lab_glow" }
+      ],
+      "ui": { "x": 20, "y": -150, "icon": "flask" }
     },
-    "watchtower": {
-      "name": "Wachturm",
-      "icon": "🗼",
-      "era": "medieval",
-      "footprint": { "w": 1, "h": 1 },
-      "cost": { "energie": 30, "nahrung": 20 },
-      "produces": { "stability": 3 },
-      "visual": "tower",
-      "description": "Schützt vor Gegnern auf Wegen."
+    {
+      "id": "exp_root",
+      "name": "Geländekartierung",
+      "branch": "exp",
+      "tier": 1,
+      "cost": 1,
+      "requires": ["core"],
+      "effects": [
+        { "type": "modifier", "key": "enemy_spawn_chance_mult", "op": "mul", "value": 0.98 },
+        { "type": "visual_unlock", "value": "fog_of_war" }
+      ],
+      "ui": { "x": 110, "y": -85, "icon": "map" }
     },
-    "factory": {
-      "name": "Fabrik",
-      "icon": "🏭",
-      "era": "industrial",
-      "footprint": { "w": 3, "h": 2 },
-      "cost": { "energie": 120, "nahrung": 80 },
-      "produces": { "energie": -5, "research": 8 },
-      "visual": "factory_smoke",
-      "description": "Hohe Produktion, sichtbare Umweltbelastung."
+
+    {
+      "id": "eco_1",
+      "name": "Rationierung",
+      "branch": "eco",
+      "tier": 2,
+      "cost": 1,
+      "requires": ["eco_root"],
+      "effects": [
+        { "type": "modifier", "key": "food_consumption_mult", "op": "mul", "value": 0.97 }
+      ],
+      "ui": { "x": -250, "y": -90, "icon": "bread" }
     },
-    "powerplant": {
-      "name": "Kraftwerk",
-      "icon": "⚡",
-      "era": "industrial",
-      "footprint": { "w": 2, "h": 2 },
-      "cost": { "energie": 0, "nahrung": 100 },
-      "produces": { "energie": 20 },
-      "visual": "powerplant",
-      "description": "Massive Energiequelle."
+    {
+      "id": "eco_2",
+      "name": "Lokale Märkte",
+      "branch": "eco",
+      "tier": 2,
+      "cost": 2,
+      "requires": ["eco_root"],
+      "effects": [
+        { "type": "unlock_building", "value": "market" },
+        { "type": "visual_unlock", "value": "market_stalls" }
+      ],
+      "ui": { "x": -270, "y": 10, "icon": "market" }
     },
-    "habitat": {
-      "name": "Habitat",
-      "icon": "🏢",
-      "era": "futuristic",
-      "footprint": { "w": 2, "h": 2 },
-      "cost": { "energie": 200, "nahrung": 150 },
-      "produces": { "bevoelkerung": 12 },
-      "visual": "habitat_glass",
-      "description": "Vertikale Wohnkomplexe."
+    {
+      "id": "eco_3",
+      "name": "Speicherlogistik",
+      "branch": "eco",
+      "tier": 2,
+      "cost": 2,
+      "requires": ["eco_root"],
+      "effects": [
+        { "type": "unlock_building", "value": "warehouse" },
+        { "type": "modifier", "key": "storage_mult", "op": "mul", "value": 1.25 }
+      ],
+      "ui": { "x": -210, "y": 70, "icon": "warehouse" }
     },
-    "research_lab": {
-      "name": "Forschungslabor",
-      "icon": "🧪",
-      "era": "antique",
-      "footprint": { "w": 2, "h": 2 },
-      "cost": {
-        "energie": 40,
-        "nahrung": 20,
-        "forschung": 0
-      },
-      "produces": {
-        "forschung": 2.5
-      },
-      "maintenance": {
-        "energie": 0.3
-      },
-      "tags": ["science", "lab"],
-      "description": "Ermöglicht strukturierte Forschung und technologische Durchbrüche."
+
+    {
+      "id": "eco_4",
+      "name": "Handelsrouten",
+      "branch": "eco",
+      "tier": 3,
+      "cost": 3,
+      "requires": ["eco_2"],
+      "effects": [
+        { "type": "modifier", "key": "income_energy_flat", "op": "add", "value": 6 },
+        { "type": "visual_unlock", "value": "trader_drones" }
+      ],
+      "ui": { "x": -390, "y": -20, "icon": "route" }
     },
-    "fusion_reactor": {
-      "name": "Fusionsreaktor",
-      "icon": "🔆",
-      "era": "futuristic",
-      "footprint": { "w": 3, "h": 3 },
-      "cost": { "energie": 0, "nahrung": 300 },
-      "produces": { "energie": 60 },
-      "visual": "fusion_core",
-      "description": "Ultimative Energiequelle mit starken Effekten."
+    {
+      "id": "eco_5",
+      "name": "Preisstabilität",
+      "branch": "eco",
+      "tier": 3,
+      "cost": 3,
+      "requires": ["eco_2"],
+      "effects": [
+        { "type": "modifier", "key": "stability_loss_events_mult", "op": "mul", "value": 0.93 }
+      ],
+      "ui": { "x": -420, "y": 60, "icon": "shield_coin" }
     },
-  }
+    {
+      "id": "eco_6",
+      "name": "Kettenproduktion",
+      "branch": "eco",
+      "tier": 3,
+      "cost": 3,
+      "requires": ["eco_3"],
+      "effects": [
+        { "type": "modifier", "key": "adjacency_bonus_mult", "op": "mul", "value": 1.12 },
+        { "type": "visual_unlock", "value": "conveyor_effect" }
+      ],
+      "ui": { "x": -360, "y": 120, "icon": "conveyor" }
+    },
+
+    {
+      "id": "eco_7",
+      "name": "Krisenreserven",
+      "branch": "eco",
+      "tier": 4,
+      "cost": 4,
+      "requires": ["eco_5"],
+      "effects": [
+        { "type": "modifier", "key": "resource_floor_food", "op": "set_min", "value": 40 },
+        { "type": "modifier", "key": "resource_floor_energy", "op": "set_min", "value": 40 }
+      ],
+      "ui": { "x": -540, "y": 20, "icon": "reserve" }
+    },
+    {
+      "id": "eco_8",
+      "name": "Hochleistungslager",
+      "branch": "eco",
+      "tier": 4,
+      "cost": 4,
+      "requires": ["eco_6"],
+      "effects": [
+        { "type": "modifier", "key": "storage_mult", "op": "mul", "value": 1.35 },
+        { "type": "visual_unlock", "value": "stacked_containers" }
+      ],
+      "ui": { "x": -520, "y": 150, "icon": "containers" }
+    },
+    {
+      "id": "eco_9",
+      "name": "Ökonomischer Fokus",
+      "branch": "eco",
+      "tier": 5,
+      "cost": 5,
+      "requires": ["eco_7", "eco_8"],
+      "effects": [
+        { "type": "modifier", "key": "resource_efficiency_mult", "op": "mul", "value": 1.10 },
+        { "type": "visual_unlock", "value": "golden_glow" }
+      ],
+      "ui": { "x": -680, "y": 90, "icon": "crown_coin" }
+    },
+
+    {
+      "id": "build_1",
+      "name": "Werkzeugstandard",
+      "branch": "build",
+      "tier": 2,
+      "cost": 1,
+      "requires": ["build_root"],
+      "effects": [
+        { "type": "modifier", "key": "build_challenge_time_mult", "op": "mul", "value": 1.08 }
+      ],
+      "ui": { "x": -120, "y": 260, "icon": "wrench" }
+    },
+    {
+      "id": "build_2",
+      "name": "Kostenbremse I",
+      "branch": "build",
+      "tier": 2,
+      "cost": 2,
+      "requires": ["build_root"],
+      "effects": [
+        { "type": "modifier", "key": "spam_cost_growth_mult", "op": "mul", "value": 0.90 }
+      ],
+      "ui": { "x": 10, "y": 290, "icon": "brake" }
+    },
+    {
+      "id": "build_3",
+      "name": "Straßenfundament",
+      "branch": "build",
+      "tier": 2,
+      "cost": 2,
+      "requires": ["build_root"],
+      "effects": [
+        { "type": "unlock_system", "value": "roads" },
+        { "type": "visual_unlock", "value": "roads_basic" }
+      ],
+      "ui": { "x": 90, "y": 245, "icon": "road" }
+    },
+
+    {
+      "id": "build_4",
+      "name": "Bau-Queue I",
+      "branch": "build",
+      "tier": 3,
+      "cost": 3,
+      "requires": ["build_1"],
+      "effects": [
+        { "type": "modifier", "key": "build_queue_max", "op": "add", "value": 1 }
+      ],
+      "ui": { "x": -180, "y": 390, "icon": "queue" }
+    },
+    {
+      "id": "build_5",
+      "name": "Modulare Pläne",
+      "branch": "build",
+      "tier": 3,
+      "cost": 3,
+      "requires": ["build_2"],
+      "effects": [
+        { "type": "modifier", "key": "upgrade_cost_mult", "op": "mul", "value": 0.92 },
+        { "type": "visual_unlock", "value": "upgrade_scaffolding" }
+      ],
+      "ui": { "x": 10, "y": 410, "icon": "blueprint" }
+    },
+    {
+      "id": "build_6",
+      "name": "Dichte Bebauung",
+      "branch": "build",
+      "tier": 3,
+      "cost": 3,
+      "requires": ["build_3"],
+      "effects": [
+        { "type": "modifier", "key": "building_footprint_mult", "op": "mul", "value": 0.90 },
+        { "type": "visual_unlock", "value": "denser_blocks" }
+      ],
+      "ui": { "x": 160, "y": 360, "icon": "blocks" }
+    },
+
+    {
+      "id": "build_7",
+      "name": "Vertikales Bauen I",
+      "branch": "build",
+      "tier": 4,
+      "cost": 4,
+      "requires": ["build_6"],
+      "effects": [
+        { "type": "unlock_system", "value": "building_height" },
+        { "type": "modifier", "key": "max_building_level_cap", "op": "add", "value": 1 },
+        { "type": "visual_unlock", "value": "taller_buildings" }
+      ],
+      "ui": { "x": 260, "y": 440, "icon": "tower" }
+    },
+    {
+      "id": "build_8",
+      "name": "Abrissprotokoll",
+      "branch": "build",
+      "tier": 4,
+      "cost": 4,
+      "requires": ["build_5"],
+      "effects": [
+        { "type": "modifier", "key": "demolish_refund_mult", "op": "mul", "value": 1.15 },
+        { "type": "visual_unlock", "value": "demolish_debris" }
+      ],
+      "ui": { "x": -40, "y": 520, "icon": "demolish" }
+    },
+    {
+      "id": "build_9",
+      "name": "Straßen II: Pflaster",
+      "branch": "build",
+      "tier": 4,
+      "cost": 4,
+      "requires": ["build_3"],
+      "effects": [
+        { "type": "visual_upgrade", "value": "roads_paved" },
+        { "type": "modifier", "key": "adjacency_bonus_mult", "op": "mul", "value": 1.06 }
+      ],
+      "ui": { "x": 120, "y": 520, "icon": "pavement" }
+    },
+
+    {
+      "id": "build_10",
+      "name": "Bau-Queue II",
+      "branch": "build",
+      "tier": 5,
+      "cost": 5,
+      "requires": ["build_4", "build_7"],
+      "effects": [
+        { "type": "modifier", "key": "build_queue_max", "op": "add", "value": 2 },
+        { "type": "modifier", "key": "build_time_mult", "op": "mul", "value": 0.94 }
+      ],
+      "ui": { "x": 120, "y": 650, "icon": "queue_plus" }
+    },
+
+    {
+      "id": "soc_1",
+      "name": "Grundversorgung",
+      "branch": "soc",
+      "tier": 2,
+      "cost": 1,
+      "requires": ["soc_root"],
+      "effects": [
+        { "type": "modifier", "key": "stability_from_food_flat", "op": "add", "value": 1 }
+      ],
+      "ui": { "x": 260, "y": -60, "icon": "medkit" }
+    },
+    {
+      "id": "soc_2",
+      "name": "Wohnzonen",
+      "branch": "soc",
+      "tier": 2,
+      "cost": 2,
+      "requires": ["soc_root"],
+      "effects": [
+        { "type": "modifier", "key": "housing_capacity_mult", "op": "mul", "value": 1.10 },
+        { "type": "visual_unlock", "value": "housing_clusters" }
+      ],
+      "ui": { "x": 330, "y": 20, "icon": "house" }
+    },
+    {
+      "id": "soc_3",
+      "name": "Kulturzentrum",
+      "branch": "soc",
+      "tier": 2,
+      "cost": 2,
+      "requires": ["soc_root"],
+      "effects": [
+        { "type": "unlock_building", "value": "culture_center" },
+        { "type": "visual_unlock", "value": "flags_and_lights" }
+      ],
+      "ui": { "x": 270, "y": 110, "icon": "theater" }
+    },
+
+    {
+      "id": "soc_4",
+      "name": "Beruhigungsprotokoll",
+      "branch": "soc",
+      "tier": 3,
+      "cost": 3,
+      "requires": ["soc_1"],
+      "effects": [
+        { "type": "modifier", "key": "riot_chance_mult", "op": "mul", "value": 0.90 },
+        { "type": "modifier", "key": "stability_loss_events_mult", "op": "mul", "value": 0.95 }
+      ],
+      "ui": { "x": 430, "y": -110, "icon": "calm" }
+    },
+    {
+      "id": "soc_5",
+      "name": "Ausbildungssystem",
+      "branch": "soc",
+      "tier": 3,
+      "cost": 3,
+      "requires": ["soc_2"],
+      "effects": [
+        { "type": "modifier", "key": "worker_efficiency_mult", "op": "mul", "value": 1.08 }
+      ],
+      "ui": { "x": 490, "y": 10, "icon": "book" }
+    },
+    {
+      "id": "soc_6",
+      "name": "Stadtfeste",
+      "branch": "soc",
+      "tier": 3,
+      "cost": 3,
+      "requires": ["soc_3"],
+      "effects": [
+        { "type": "modifier", "key": "stability_gain_flat", "op": "add", "value": 2 },
+        { "type": "visual_unlock", "value": "fireworks_small" }
+      ],
+      "ui": { "x": 420, "y": 160, "icon": "fireworks" }
+    },
+
+    {
+      "id": "soc_7",
+      "name": "Gesundheitsnetz",
+      "branch": "soc",
+      "tier": 4,
+      "cost": 4,
+      "requires": ["soc_4"],
+      "effects": [
+        { "type": "modifier", "key": "population_loss_crisis_mult", "op": "mul", "value": 0.85 },
+        { "type": "unlock_building", "value": "clinic" }
+      ],
+      "ui": { "x": 580, "y": -70, "icon": "clinic" }
+    },
+    {
+      "id": "soc_8",
+      "name": "Sozialvertrag",
+      "branch": "soc",
+      "tier": 4,
+      "cost": 4,
+      "requires": ["soc_5", "soc_6"],
+      "effects": [
+        { "type": "modifier", "key": "stability_floor", "op": "set_min", "value": 15 },
+        { "type": "visual_unlock", "value": "banners_city" }
+      ],
+      "ui": { "x": 620, "y": 80, "icon": "contract" }
+    },
+
+    {
+      "id": "soc_9",
+      "name": "Megapolis-Planung",
+      "branch": "soc",
+      "tier": 5,
+      "cost": 5,
+      "requires": ["soc_7", "soc_8"],
+      "effects": [
+        { "type": "modifier", "key": "population_growth_mult", "op": "mul", "value": 1.12 },
+        { "type": "visual_unlock", "value": "city_density_up" }
+      ],
+      "ui": { "x": 760, "y": 10, "icon": "megacity" }
+    },
+
+    {
+      "id": "tech_1",
+      "name": "Grundlabore",
+      "branch": "tech",
+      "tier": 2,
+      "cost": 1,
+      "requires": ["tech_root"],
+      "effects": [
+        { "type": "unlock_building", "value": "research_lab" },
+        { "type": "visual_unlock", "value": "lab_blink" }
+      ],
+      "ui": { "x": -120, "y": -250, "icon": "lab" }
+    },
+    {
+      "id": "tech_2",
+      "name": "Stromverteilung",
+      "branch": "tech",
+      "tier": 2,
+      "cost": 2,
+      "requires": ["tech_root"],
+      "effects": [
+        { "type": "unlock_system", "value": "power_grid" },
+        { "type": "visual_unlock", "value": "cables_visible" }
+      ],
+      "ui": { "x": 0, "y": -290, "icon": "cable" }
+    },
+    {
+      "id": "tech_3",
+      "name": "Datenanalyse",
+      "branch": "tech",
+      "tier": 2,
+      "cost": 2,
+      "requires": ["tech_root"],
+      "effects": [
+        { "type": "modifier", "key": "event_forecast_turns", "op": "add", "value": 1 }
+      ],
+      "ui": { "x": 110, "y": -250, "icon": "chart" }
+    },
+
+    {
+      "id": "tech_4",
+      "name": "Hydroponik",
+      "branch": "tech",
+      "tier": 3,
+      "cost": 3,
+      "requires": ["tech_1"],
+      "effects": [
+        { "type": "unlock_building", "value": "hydro_farm" },
+        { "type": "visual_unlock", "value": "greenhouse_glow" }
+      ],
+      "ui": { "x": -220, "y": -390, "icon": "leaf_lab" }
+    },
+    {
+      "id": "tech_5",
+      "name": "Solaroptimierung",
+      "branch": "tech",
+      "tier": 3,
+      "cost": 3,
+      "requires": ["tech_2"],
+      "effects": [
+        { "type": "unlock_building", "value": "solar_array" },
+        { "type": "modifier", "key": "energy_prod_mult", "op": "mul", "value": 1.07 }
+      ],
+      "ui": { "x": 0, "y": -430, "icon": "solar" }
+    },
+    {
+      "id": "tech_6",
+      "name": "Automatisierung I",
+      "branch": "tech",
+      "tier": 3,
+      "cost": 3,
+      "requires": ["tech_3"],
+      "effects": [
+        { "type": "modifier", "key": "maintenance_cost_mult", "op": "mul", "value": 0.92 },
+        { "type": "visual_unlock", "value": "bots_small" }
+      ],
+      "ui": { "x": 210, "y": -380, "icon": "bot" }
+    },
+
+    {
+      "id": "tech_7",
+      "name": "Sicherheits-KI",
+      "branch": "tech",
+      "tier": 4,
+      "cost": 4,
+      "requires": ["tech_6"],
+      "effects": [
+        { "type": "modifier", "key": "enemy_spawn_chance_mult", "op": "mul", "value": 0.92 },
+        { "type": "modifier", "key": "tower_damage_mult", "op": "mul", "value": 1.08 }
+      ],
+      "ui": { "x": 340, "y": -520, "icon": "ai_shield" }
+    },
+    {
+      "id": "tech_8",
+      "name": "Power-Overdrive",
+      "branch": "tech",
+      "tier": 4,
+      "cost": 4,
+      "requires": ["tech_5"],
+      "effects": [
+        { "type": "unlock_system", "value": "power_overdrive_mode" },
+        { "type": "modifier", "key": "energy_click_bonus_flat", "op": "add", "value": 12 }
+      ],
+      "ui": { "x": 40, "y": -570, "icon": "bolt_plus" }
+    },
+    {
+      "id": "tech_9",
+      "name": "Forschung II: Durchbrüche",
+      "branch": "tech",
+      "tier": 4,
+      "cost": 4,
+      "requires": ["tech_4", "tech_6"],
+      "effects": [
+        { "type": "modifier", "key": "research_speed_mult", "op": "mul", "value": 1.10 },
+        { "type": "visual_unlock", "value": "breakthrough_flash" }
+      ],
+      "ui": { "x": -180, "y": -550, "icon": "spark" }
+    },
+
+    {
+      "id": "tech_10",
+      "name": "Nexus-Protokoll",
+      "branch": "tech",
+      "tier": 5,
+      "cost": 5,
+      "requires": ["tech_7", "tech_8", "tech_9"],
+      "effects": [
+        { "type": "unlock_system", "value": "advanced_minigames" },
+        { "type": "visual_unlock", "value": "neon_city_shift" }
+      ],
+      "ui": { "x": 120, "y": -720, "icon": "nexus" }
+    },
+
+    {
+      "id": "exp_1",
+      "name": "Außenposten",
+      "branch": "exp",
+      "tier": 2,
+      "cost": 1,
+      "requires": ["exp_root"],
+      "effects": [
+        { "type": "unlock_building", "value": "outpost" },
+        { "type": "visual_unlock", "value": "beacon" }
+      ],
+      "ui": { "x": 220, "y": -160, "icon": "beacon" }
+    },
+    {
+      "id": "exp_2",
+      "name": "Landgewinnung",
+      "branch": "exp",
+      "tier": 2,
+      "cost": 2,
+      "requires": ["exp_root"],
+      "effects": [
+        { "type": "modifier", "key": "map_expand_tiles", "op": "add", "value": 20 },
+        { "type": "visual_unlock", "value": "new_tiles_reveal" }
+      ],
+      "ui": { "x": 290, "y": -70, "icon": "expand" }
+    },
+    {
+      "id": "exp_3",
+      "name": "Wetterkontrolle",
+      "branch": "exp",
+      "tier": 2,
+      "cost": 2,
+      "requires": ["exp_root"],
+      "effects": [
+        { "type": "modifier", "key": "crisis_chance_mult", "op": "mul", "value": 0.95 },
+        { "type": "visual_unlock", "value": "weather_layers" }
+      ],
+      "ui": { "x": 340, "y": -260, "icon": "cloud" }
+    },
+
+    {
+      "id": "exp_4",
+      "name": "Umweltfilter",
+      "branch": "exp",
+      "tier": 3,
+      "cost": 3,
+      "requires": ["exp_3"],
+      "effects": [
+        { "type": "modifier", "key": "pollution_gain_mult", "op": "mul", "value": 0.85 },
+        { "type": "visual_unlock", "value": "cleaner_air" }
+      ],
+      "ui": { "x": 460, "y": -320, "icon": "filter" }
+    },
+    {
+      "id": "exp_5",
+      "name": "Feindpfad-Scans",
+      "branch": "exp",
+      "tier": 3,
+      "cost": 3,
+      "requires": ["exp_1"],
+      "effects": [
+        { "type": "modifier", "key": "enemy_path_preview", "op": "set", "value": 1 },
+        { "type": "visual_unlock", "value": "path_highlight" }
+      ],
+      "ui": { "x": 420, "y": -190, "icon": "radar" }
+    },
+    {
+      "id": "exp_6",
+      "name": "Grenztürme",
+      "branch": "exp",
+      "tier": 3,
+      "cost": 3,
+      "requires": ["exp_2"],
+      "effects": [
+        { "type": "unlock_building", "value": "defense_tower" },
+        { "type": "modifier", "key": "tower_range_mult", "op": "mul", "value": 1.08 }
+      ],
+      "ui": { "x": 500, "y": -60, "icon": "tower" }
+    },
+
+    {
+      "id": "exp_7",
+      "name": "Biosphären-Gürtel",
+      "branch": "exp",
+      "tier": 4,
+      "cost": 4,
+      "requires": ["exp_4"],
+      "effects": [
+        { "type": "modifier", "key": "stability_gain_flat", "op": "add", "value": 2 },
+        { "type": "visual_unlock", "value": "green_belts" }
+      ],
+      "ui": { "x": 610, "y": -420, "icon": "tree" }
+    },
+    {
+      "id": "exp_8",
+      "name": "Expeditionskorps",
+      "branch": "exp",
+      "tier": 4,
+      "cost": 4,
+      "requires": ["exp_5", "exp_6"],
+      "effects": [
+        { "type": "modifier", "key": "enemy_spawn_chance_mult", "op": "mul", "value": 0.88 },
+        { "type": "visual_unlock", "value": "patrol_drones" }
+      ],
+      "ui": { "x": 650, "y": -140, "icon": "patrol" }
+    },
+
+    {
+      "id": "exp_9",
+      "name": "Terraforming-Init",
+      "branch": "exp",
+      "tier": 5,
+      "cost": 5,
+      "requires": ["exp_7", "exp_8"],
+      "effects": [
+        { "type": "unlock_system", "value": "terraforming" },
+        { "type": "visual_unlock", "value": "terrain_shift" }
+      ],
+      "ui": { "x": 780, "y": -260, "icon": "terraform" }
+    },
+
+    {
+      "id": "era_unlock_antique",
+      "name": "Epoche: Antike",
+      "branch": "build",
+      "tier": 3,
+      "cost": 3,
+      "requires": ["eco_2", "build_3", "soc_2"],
+      "effects": [
+        { "type": "unlock_era", "value": "antique" },
+        { "type": "visual_upgrade", "value": "era_antique_palette" },
+        { "type": "unlock_building", "value": "stone_house" }
+      ],
+      "ui": { "x": 220, "y": 230, "icon": "column" }
+    },
+    {
+      "id": "era_unlock_medieval",
+      "name": "Epoche: Mittelalter",
+      "branch": "soc",
+      "tier": 4,
+      "cost": 4,
+      "requires": ["era_unlock_antique", "build_9", "soc_6"],
+      "effects": [
+        { "type": "unlock_era", "value": "medieval" },
+        { "type": "visual_upgrade", "value": "era_medieval_palette" },
+        { "type": "unlock_building", "value": "workshop" }
+      ],
+      "ui": { "x": 520, "y": 210, "icon": "castle" }
+    },
+    {
+      "id": "era_unlock_industry",
+      "name": "Epoche: Industrie",
+      "branch": "tech",
+      "tier": 4,
+      "cost": 4,
+      "requires": ["era_unlock_medieval", "tech_6", "eco_6"],
+      "effects": [
+        { "type": "unlock_era", "value": "industry" },
+        { "type": "visual_upgrade", "value": "era_industry_palette" },
+        { "type": "unlock_building", "value": "factory" }
+      ],
+      "ui": { "x": 240, "y": -600, "icon": "factory" }
+    },
+    {
+      "id": "era_unlock_future",
+      "name": "Epoche: Futuristisch",
+      "branch": "tech",
+      "tier": 5,
+      "cost": 5,
+      "requires": ["era_unlock_industry", "tech_10", "exp_9"],
+      "effects": [
+        { "type": "unlock_era", "value": "future" },
+        { "type": "visual_upgrade", "value": "era_future_palette" },
+        { "type": "unlock_building", "value": "arcology" }
+      ],
+      "ui": { "x": 420, "y": -780, "icon": "neon_city" }
+    },
+
+    {
+      "id": "meta_bike_clicker",
+      "name": "Bike Runner",
+      "branch": "eco",
+      "tier": 3,
+      "cost": 2,
+      "requires": ["eco_root"],
+      "effects": [
+        { "type": "unlock_system", "value": "bike_clicker" },
+        { "type": "modifier", "key": "bike_spawn_rate_mult", "op": "mul", "value": 1.15 },
+        { "type": "visual_unlock", "value": "bike_guy_spawn" }
+      ],
+      "ui": { "x": -190, "y": -10, "icon": "bike" }
+    },
+    {
+      "id": "meta_explosions",
+      "name": "Impact-Effekte",
+      "branch": "build",
+      "tier": 2,
+      "cost": 1,
+      "requires": ["build_root"],
+      "effects": [
+        { "type": "visual_unlock", "value": "micro_explosions" },
+        { "type": "visual_unlock", "value": "screen_shake_small" }
+      ],
+      "ui": { "x": -60, "y": 200, "icon": "boom" }
+    },
+
+    {
+      "id": "goal_1",
+      "name": "Großziel: Kolonie-Kernstufe I",
+      "branch": "soc",
+      "tier": 2,
+      "cost": 1,
+      "requires": ["soc_root"],
+      "effects": [
+        { "type": "unlock_goal", "value": "core_level_1" },
+        { "type": "visual_unlock", "value": "goal_tracker" }
+      ],
+      "ui": { "x": 200, "y": 140, "icon": "goal" }
+    },
+    {
+      "id": "goal_2",
+      "name": "Großziel: Kolonie-Kernstufe II",
+      "branch": "tech",
+      "tier": 4,
+      "cost": 4,
+      "requires": ["goal_1", "tech_9"],
+      "effects": [
+        { "type": "unlock_goal", "value": "core_level_2" },
+        { "type": "visual_unlock", "value": "goal_tracker_upgrade" }
+      ],
+      "ui": { "x": 20, "y": -520, "icon": "goal_plus" }
+    }
+  ],
+  "edges": [
+    { "from": "core", "to": "eco_root" },
+    { "from": "core", "to": "build_root" },
+    { "from": "core", "to": "soc_root" },
+    { "from": "core", "to": "tech_root" },
+    { "from": "core", "to": "exp_root" },
+
+    { "from": "eco_root", "to": "eco_1" },
+    { "from": "eco_root", "to": "eco_2" },
+    { "from": "eco_root", "to": "eco_3" },
+    { "from": "eco_2", "to": "eco_4" },
+    { "from": "eco_2", "to": "eco_5" },
+    { "from": "eco_3", "to": "eco_6" },
+    { "from": "eco_5", "to": "eco_7" },
+    { "from": "eco_6", "to": "eco_8" },
+    { "from": "eco_7", "to": "eco_9" },
+    { "from": "eco_8", "to": "eco_9" },
+
+    { "from": "build_root", "to": "build_1" },
+    { "from": "build_root", "to": "build_2" },
+    { "from": "build_root", "to": "build_3" },
+    { "from": "build_1", "to": "build_4" },
+    { "from": "build_2", "to": "build_5" },
+    { "from": "build_3", "to": "build_6" },
+    { "from": "build_4", "to": "build_10" },
+    { "from": "build_7", "to": "build_10" },
+    { "from": "build_6", "to": "build_7" },
+    { "from": "build_5", "to": "build_8" },
+    { "from": "build_3", "to": "build_9" },
+
+    { "from": "soc_root", "to": "soc_1" },
+    { "from": "soc_root", "to": "soc_2" },
+    { "from": "soc_root", "to": "soc_3" },
+    { "from": "soc_1", "to": "soc_4" },
+    { "from": "soc_2", "to": "soc_5" },
+    { "from": "soc_3", "to": "soc_6" },
+    { "from": "soc_4", "to": "soc_7" },
+    { "from": "soc_5", "to": "soc_8" },
+    { "from": "soc_6", "to": "soc_8" },
+    { "from": "soc_7", "to": "soc_9" },
+    { "from": "soc_8", "to": "soc_9" },
+
+    { "from": "tech_root", "to": "tech_1" },
+    { "from": "tech_root", "to": "tech_2" },
+    { "from": "tech_root", "to": "tech_3" },
+    { "from": "tech_1", "to": "tech_4" },
+    { "from": "tech_2", "to": "tech_5" },
+    { "from": "tech_3", "to": "tech_6" },
+    { "from": "tech_6", "to": "tech_7" },
+    { "from": "tech_5", "to": "tech_8" },
+    { "from": "tech_4", "to": "tech_9" },
+    { "from": "tech_6", "to": "tech_9" },
+    { "from": "tech_7", "to": "tech_10" },
+    { "from": "tech_8", "to": "tech_10" },
+    { "from": "tech_9", "to": "tech_10" },
+
+    { "from": "exp_root", "to": "exp_1" },
+    { "from": "exp_root", "to": "exp_2" },
+    { "from": "exp_root", "to": "exp_3" },
+    { "from": "exp_3", "to": "exp_4" },
+    { "from": "exp_1", "to": "exp_5" },
+    { "from": "exp_2", "to": "exp_6" },
+    { "from": "exp_4", "to": "exp_7" },
+    { "from": "exp_5", "to": "exp_8" },
+    { "from": "exp_6", "to": "exp_8" },
+    { "from": "exp_7", "to": "exp_9" },
+    { "from": "exp_8", "to": "exp_9" },
+
+    { "from": "eco_root", "to": "meta_bike_clicker" },
+    { "from": "build_root", "to": "meta_explosions" },
+
+    { "from": "soc_root", "to": "goal_1" },
+    { "from": "goal_1", "to": "goal_2" },
+
+    { "from": "eco_2", "to": "era_unlock_antique" },
+    { "from": "build_3", "to": "era_unlock_antique" },
+    { "from": "soc_2", "to": "era_unlock_antique" },
+
+    { "from": "era_unlock_antique", "to": "era_unlock_medieval" },
+    { "from": "build_9", "to": "era_unlock_medieval" },
+    { "from": "soc_6", "to": "era_unlock_medieval" },
+
+    { "from": "era_unlock_medieval", "to": "era_unlock_industry" },
+    { "from": "tech_6", "to": "era_unlock_industry" },
+    { "from": "eco_6", "to": "era_unlock_industry" },
+
+    { "from": "era_unlock_industry", "to": "era_unlock_future" },
+    { "from": "tech_10", "to": "era_unlock_future" },
+    { "from": "exp_9", "to": "era_unlock_future" }
+  ]
 }
