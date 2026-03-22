@@ -104,8 +104,36 @@ function normalizeEras(raw) {
     }));
 }
 
+const FALLBACK_BUILDINGS_RAW = {
+  campfire:{name:"Lagerfeuer",icon:"🔥",era:"proto",footprint:{w:1,h:1},cost:{energie:0,nahrung:5},produces:{energie:2},maxCount:6},
+  hut:{name:"Hütte",icon:"🛖",era:"proto",footprint:{w:1,h:1},cost:{energie:5,nahrung:20},produces:{bevoelkerung:2}},
+  farm:{name:"Farm",icon:"🌾",era:"proto",footprint:{w:2,h:2},cost:{energie:20},produces:{nahrung:8}},
+  well:{name:"Brunnen",icon:"🪣",era:"proto",footprint:{w:1,h:1},cost:{energie:8,nahrung:10},produces:{stabilitaet:3}},
+  house:{name:"Haus",icon:"🏠",era:"ancient",footprint:{w:1,h:1},cost:{energie:25,nahrung:30},produces:{bevoelkerung:4}},
+  market:{name:"Markt",icon:"🏪",era:"ancient",footprint:{w:2,h:1},cost:{energie:30,nahrung:25},produces:{energie:1,nahrung:2,forschung:1,stabilitaet:1}},
+  barracks:{name:"Kaserne",icon:"⚔️",era:"ancient",footprint:{w:2,h:1},cost:{energie:35,nahrung:40},produces:{stabilitaet:5}},
+  workshop:{name:"Werkstatt",icon:"⚒️",era:"medieval",footprint:{w:2,h:1},cost:{energie:40,nahrung:30},produces:{forschung:2}},
+  mill:{name:"Mühle",icon:"🌀",era:"medieval",footprint:{w:1,h:1},cost:{energie:35,nahrung:20},produces:{nahrung:5}},
+  library:{name:"Bibliothek",icon:"📚",era:"medieval",footprint:{w:1,h:1},cost:{energie:45,nahrung:30},produces:{forschung:3}},
+  tavern:{name:"Taverne",icon:"🍺",era:"medieval",footprint:{w:1,h:1},cost:{energie:30,nahrung:25},produces:{bevoelkerung:1,stabilitaet:2}},
+  hospital:{name:"Krankenhaus",icon:"🏥",era:"medieval",footprint:{w:2,h:1},cost:{energie:50,nahrung:40},produces:{bevoelkerung:2,stabilitaet:3}},
+  factory:{name:"Fabrik",icon:"🏭",era:"industrial",footprint:{w:3,h:2},cost:{energie:120,nahrung:80},produces:{forschung:8}},
+  powerplant:{name:"Kraftwerk",icon:"⚡",era:"industrial",footprint:{w:2,h:2},cost:{nahrung:100},produces:{energie:20}},
+  coal_mine:{name:"Kohlemine",icon:"⛏️",era:"industrial",footprint:{w:2,h:1},cost:{energie:80,nahrung:50},produces:{energie:12}},
+  solar_panel:{name:"Solarpark",icon:"☀️",era:"industrial",footprint:{w:2,h:1},cost:{energie:90,forschung:30},produces:{energie:8}},
+  city_hall:{name:"Rathaus",icon:"🏛️",era:"industrial",footprint:{w:2,h:2},cost:{energie:150,nahrung:100,forschung:50},produces:{stabilitaet:8,bevoelkerung:3}},
+  habitat:{name:"Habitat",icon:"🏢",era:"futuristic",footprint:{w:2,h:2},cost:{energie:200,nahrung:150},produces:{bevoelkerung:12}},
+  research_lab:{name:"Forschungslabor",icon:"🧪",era:"futuristic",footprint:{w:2,h:2},cost:{energie:160,nahrung:80,forschung:50},produces:{forschung:10}},
+  fusion_reactor:{name:"Fusionsreaktor",icon:"🔆",era:"futuristic",footprint:{w:3,h:3},cost:{nahrung:300,forschung:150},produces:{energie:60}},
+  quantum_computer:{name:"Quantencomputer",icon:"💻",era:"futuristic",footprint:{w:2,h:2},cost:{energie:400,forschung:200},produces:{forschung:20}},
+  orbital_station:{name:"Orbitalstation",icon:"🛸",era:"futuristic",footprint:{w:3,h:2},cost:{energie:500,nahrung:300,forschung:400},produces:{energie:20,nahrung:10,forschung:20,bevoelkerung:5,stabilitaet:5}},
+};
+
 function normalizeBuildings(raw) {
-  const obj = raw?.buildings && typeof raw.buildings === "object" ? raw.buildings : raw;
+  const rawObj = raw?.buildings && typeof raw.buildings === "object" ? raw.buildings
+               : (raw && typeof raw === "object" && !Array.isArray(raw)) ? raw
+               : null;
+  const obj = rawObj || FALLBACK_BUILDINGS_RAW;
   if (!obj || typeof obj !== "object") return {};
 
   const out = {};
