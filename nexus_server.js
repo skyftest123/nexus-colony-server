@@ -26,6 +26,8 @@ const fs = require("fs");
 const path = require("path");
 const WebSocket = require("ws");
 const { hasResources } = require("./src/game_rules");
+const { EXPEDITION_TYPES, getAvailableExpeditions, createExpedition, resolveExpedition } = require("./src/expeditions");
+const { generateDailyQuests, getDayKey, updateQuestProgress } = require("./src/daily_quests");
 
 
 // --- Config ---
@@ -380,39 +382,6 @@ function applyOfflineProgress(state, seconds, tickMs) {
   return ticks;
 }
 
-function computeRoleBonuses(lobby) {
-  const bonuses = {
-    energyMult: 1,
-    foodMult: 1,
-    researchMult: 1,
-    stabilityMult: 1,
-  };
-
-  for (const p of lobby.players.values()) {
-    switch (p.role) {
-      case "engineer":
-        bonuses.energyMult += 0.05;
-        break;
-      case "logistician":
-        bonuses.foodMult += 0.05;
-        break;
-      case "researcher":
-        bonuses.researchMult += 0.05;
-        break;
-      case "diplomat":
-        bonuses.stabilityMult += 0.05;
-        break;
-    }
-  }
-
-  bonuses.energyMult = Math.min(1.3, bonuses.energyMult);
-  bonuses.foodMult = Math.min(1.3, bonuses.foodMult);
-  bonuses.researchMult = Math.min(1.3, bonuses.researchMult);
-  bonuses.stabilityMult = Math.min(1.3, bonuses.stabilityMult);
-
-  return bonuses;
-}
-
 async function handleChallengeResolve(ws, data) {
   const lr = requireLobby(ws);
   if (!lr.ok) return safeSend(ws, { type: "error", message: lr.err });
@@ -578,6 +547,9 @@ async function saveLobbySnapshot(lobbyId, lobbyObj) {
       activeEvent: lobbyObj.state.activeEvent,
       special: lobbyObj.state.special,
       specialBuff: lobbyObj.state.specialBuff,
+      _expeditions: lobbyObj.expeditions || [],
+      _dailyQuests: lobbyObj.dailyQuests || [],
+      _dailyStats: lobbyObj.dailyStats || {},
       // lightweight roster for UI list
       players: Array.from(lobbyObj.players.values()).map((p) => ({
         id: p.id,
@@ -595,27 +567,102 @@ async function saveLobbySnapshot(lobbyId, lobbyObj) {
 // =====================================
 // Lobby class
 // =====================================
+// =====================================
+// Role system (8 roles, real unique bonuses)
+// =====================================
+const ROLE_DEFINITIONS = {
+  engineer:    { name: "Ingenieur",   icon: "⚙️",  desc: "Energieproduktion +15%, Gebäude-Reparatur kostet 20% weniger" },
+  researcher:  { name: "Forscher",    icon: "🔬",  desc: "Forschungsproduktion +20%, Expeditionsdauer -10%" },
+  logistician: { name: "Logistiker",  icon: "📦",  desc: "Nahrungsproduktion +15%, Wartungskosten -10%" },
+  diplomat:    { name: "Diplomat",    icon: "🕊️",  desc: "Stabilitätsproduktion +20%, Krisen-Schaden -15%" },
+  military:    { name: "Militär",     icon: "⚔️",  desc: "Krisen-Resistenz +20%, Stabilität verliert langsamer" },
+  medic:       { name: "Mediziner",   icon: "🏥",  desc: "Bevölkerungswachstum +25%, Krisen-Erholung verdoppelt" },
+  trader:      { name: "Händler",     icon: "🐪",  desc: "Alle Handelsrouten +30% Ertrag, seltene Expeditionen verfügbar" },
+  pioneer:     { name: "Pionier",     icon: "🗺️",  desc: "Expeditionsdauer -25%, Expedition-Belohnungen +20%" },
+};
+
 function computeRoleBonuses(lobby) {
   const bonuses = {
     energyMult: 1,
     foodMult: 1,
     researchMult: 1,
     stabilityMult: 1,
+    populationMult: 1,
+    crisisResistBonus: 0,       // flat reduction of crisis damage
+    maintenanceMult: 1,
+    expeditionDurationMult: 1,  // <1 = faster
+    expeditionRewardMult: 1,
+    hasTrader: false,
+    hasMilitary: false,
+    hasMedic: false,
   };
 
   for (const p of lobby.players.values()) {
     switch (p.role) {
-      case "engineer": bonuses.energyMult += 0.05; break;
-      case "logistician": bonuses.foodMult += 0.05; break;
-      case "researcher": bonuses.researchMult += 0.05; break;
-      case "diplomat": bonuses.stabilityMult += 0.05; break;
+      case "engineer":
+        bonuses.energyMult += 0.15;
+        break;
+      case "researcher":
+        bonuses.researchMult += 0.20;
+        bonuses.expeditionDurationMult *= 0.90;
+        break;
+      case "logistician":
+        bonuses.foodMult += 0.15;
+        bonuses.maintenanceMult *= 0.90;
+        break;
+      case "diplomat":
+        bonuses.stabilityMult += 0.20;
+        bonuses.crisisResistBonus += 0.15;
+        break;
+      case "military":
+        bonuses.crisisResistBonus += 0.20;
+        bonuses.hasMilitary = true;
+        break;
+      case "medic":
+        bonuses.populationMult += 0.25;
+        bonuses.hasMedic = true;
+        break;
+      case "trader":
+        bonuses.hasTrader = true;
+        bonuses.expeditionRewardMult += 0.30;
+        break;
+      case "pioneer":
+        bonuses.expeditionDurationMult *= 0.75;
+        bonuses.expeditionRewardMult += 0.20;
+        break;
     }
   }
 
-  bonuses.energyMult = Math.min(1.3, bonuses.energyMult);
-  bonuses.foodMult = Math.min(1.3, bonuses.foodMult);
-  bonuses.researchMult = Math.min(1.3, bonuses.researchMult);
-  bonuses.stabilityMult = Math.min(1.3, bonuses.stabilityMult);
+  // Team Synergy: more distinct online roles = bonus for everyone
+  const onlineRoles = new Set();
+  for (const p of lobby.players.values()) {
+    if (p.ws && p.ws.readyState === WebSocket.OPEN && p.role) onlineRoles.add(p.role);
+  }
+  const synergyLevel = onlineRoles.size;
+  // 2 roles = +5%, 3 roles = +12%, 4+ roles = +22%
+  const synergyMult = synergyLevel >= 4 ? 1.22 : synergyLevel >= 3 ? 1.12 : synergyLevel >= 2 ? 1.05 : 1.0;
+  bonuses.synergyMult = synergyMult;
+  bonuses.synergyLevel = synergyLevel;
+
+  // Apply synergy to all production multipliers
+  if (synergyMult > 1) {
+    bonuses.energyMult *= synergyMult;
+    bonuses.foodMult *= synergyMult;
+    bonuses.researchMult *= synergyMult;
+    bonuses.stabilityMult *= synergyMult;
+    bonuses.populationMult *= synergyMult;
+  }
+
+  // Cap multipliers to prevent runaway
+  bonuses.energyMult = Math.min(2.0, bonuses.energyMult);
+  bonuses.foodMult = Math.min(2.0, bonuses.foodMult);
+  bonuses.researchMult = Math.min(2.0, bonuses.researchMult);
+  bonuses.stabilityMult = Math.min(2.0, bonuses.stabilityMult);
+  bonuses.populationMult = Math.min(2.0, bonuses.populationMult);
+  bonuses.crisisResistBonus = Math.min(0.60, bonuses.crisisResistBonus);
+  bonuses.expeditionDurationMult = Math.max(0.4, bonuses.expeditionDurationMult);
+  bonuses.expeditionRewardMult = Math.min(2.0, bonuses.expeditionRewardMult);
+  bonuses.maintenanceMult = Math.max(0.5, bonuses.maintenanceMult);
 
   return bonuses;
 }
@@ -631,8 +678,24 @@ class Lobby {
     this.state = seededState || createInitialState();
     this.state.config = CONFIG;
 
+    // Expedition & daily quest state
+    const today = getDayKey();
+    this.expeditions = seededState?._expeditions || [];
+    this.dailyQuests = seededState?._dailyQuests || generateDailyQuests(today, 0);
+    this.dailyStats = seededState?._dailyStats || {
+      dailyBuilds: 0,
+      dailyUpgrades: 0,
+      dailyCrisesSurvived: 0,
+      dailyExpeditions: 0,
+      currentPlayerCount: 0,
+      lastResetDay: today,
+    };
+
     this._tickInterval = null;
     this._lastSnapshotTick = 0;
+    this._recentBuilds = [];   // for hot streak detection
+    this._prevSynergyLevel = 0;
+    this._resourceMilestones = new Set(); // already celebrated
     this._tickStart();
   }
 
@@ -719,6 +782,19 @@ class Lobby {
         .slice(0, 4);
       const displayMilestones = pendingMilestones.length > 0 ? pendingMilestones : milestoneList.slice(-4);
 
+      const eraIdx = eraIndexById(stateCopy.era);
+      const roleBonuses = this.state.roleBonuses || {};
+      const availableExpeditions = getAvailableExpeditions(eraIdx, roleBonuses.hasTrader || false);
+
+      // daily quest reset check
+      const today = getDayKey();
+      if (this.dailyStats.lastResetDay !== today) {
+        this.dailyStats = { dailyBuilds: 0, dailyUpgrades: 0, dailyCrisesSurvived: 0, dailyExpeditions: 0, currentPlayerCount: this.players.size, lastResetDay: today };
+        this.dailyQuests = generateDailyQuests(today, eraIdx);
+      }
+      this.dailyStats.currentPlayerCount = Array.from(this.players.values()).filter(pl => pl.ws && pl.ws.readyState === WebSocket.OPEN).length;
+      updateQuestProgress(this.dailyQuests, this.state, this.dailyStats);
+
       p.ws.send(
         JSON.stringify({
           type: "update_state",
@@ -734,11 +810,16 @@ class Lobby {
             activeEvents: stateCopy.activeEvent ? [stateCopy.activeEvent] : [],
             special: stateCopy.special,
             specialBuff: stateCopy.specialBuff,
+            roleBonuses: this.state.roleBonuses || {},
           },
           players: this.getPlayersList(),
           progress: prog,
           eras: CONFIG.eras,
           milestones: displayMilestones,
+          expeditions: this.expeditions,
+          availableExpeditions,
+          dailyQuests: this.dailyQuests,
+          roleDefinitions: ROLE_DEFINITIONS,
         })
       );
     }
@@ -790,6 +871,110 @@ class Lobby {
       }
     }
 
+
+    // ── Team Synergy Change Broadcast ──────────────────────────
+    const curSynergy = this.state.roleBonuses?.synergyLevel || 0;
+    if (curSynergy !== this._prevSynergyLevel) {
+      const prev = this._prevSynergyLevel;
+      this._prevSynergyLevel = curSynergy;
+      if (curSynergy > prev && curSynergy >= 2) {
+        const msg = curSynergy >= 4
+          ? "🌟 VOLLE SYNERGIE! Alle Rollen aktiv → +22% auf alles!"
+          : curSynergy >= 3
+          ? "⚡ Team-Synergie! 3 Rollen online → +12% auf alles!"
+          : "🤝 Team komplett! 2 Rollen online → +5% auf alles!";
+        this.broadcast({ type: "team_synergy", level: curSynergy, message: msg });
+      }
+    }
+
+    // ── Glücksfall (Lucky Drop) — 0.5% chance per tick ────────
+    if (Math.random() < 0.005) {
+      const eraIdx = eraIndexById(this.state.era);
+      const dropTable = [
+        { resource: "energie",     amount: Math.floor((60  + Math.random() * 140) * (1 + eraIdx * 0.5)) },
+        { resource: "nahrung",     amount: Math.floor((50  + Math.random() * 100) * (1 + eraIdx * 0.4)) },
+        { resource: "forschung",   amount: Math.floor((15  + Math.random() * 50)  * (1 + eraIdx * 0.6)) },
+        { resource: "stabilitaet", amount: Math.min(25, Math.floor(8 + Math.random() * 17)) },
+      ];
+      const drop = dropTable[Math.floor(Math.random() * dropTable.length)];
+      const r = this.state.resources;
+      r[drop.resource] = Math.min((r[drop.resource] || 0) + drop.amount, drop.resource === "stabilitaet" ? 100 : 999999);
+      this.broadcast({ type: "lucky_drop", resource: drop.resource, amount: drop.amount });
+    }
+
+    // ── Resource Milestone Celebrations ───────────────────────
+    const milestoneChecks = [
+      { key: "energie",     val: 500,   msg: "⚡ 500 Energie!",       icon: "⚡" },
+      { key: "energie",     val: 2000,  msg: "⚡ 2000 Energie!",      icon: "⚡" },
+      { key: "energie",     val: 10000, msg: "⚡ 10.000 Energie!",    icon: "⚡" },
+      { key: "nahrung",     val: 500,   msg: "🌾 500 Nahrung!",       icon: "🌾" },
+      { key: "nahrung",     val: 2000,  msg: "🌾 2000 Nahrung!",      icon: "🌾" },
+      { key: "bevoelkerung",val: 100,   msg: "👥 100 Einwohner!",     icon: "👥" },
+      { key: "bevoelkerung",val: 500,   msg: "👥 500 Einwohner!",     icon: "👥" },
+      { key: "bevoelkerung",val: 1000,  msg: "👥 1000 Einwohner!",    icon: "👥" },
+      { key: "forschung",   val: 300,   msg: "🧠 300 Forschung!",     icon: "🧠" },
+      { key: "forschung",   val: 1000,  msg: "🧠 1000 Forschung!",    icon: "🧠" },
+      { key: "stabilitaet", val: 90,    msg: "🛡️ Stabilität 90+!",    icon: "🛡️" },
+    ];
+    const res = this.state.resources;
+    for (const mc of milestoneChecks) {
+      const mKey = `${mc.key}_${mc.val}`;
+      if (!this._resourceMilestones.has(mKey) && (res[mc.key] || 0) >= mc.val) {
+        this._resourceMilestones.add(mKey);
+        this.broadcast({ type: "resource_milestone", message: mc.msg, icon: mc.icon, value: mc.val });
+      }
+    }
+
+    // Auto-resolve completed expeditions
+    const tick = this.state.tick;
+    const roleBonuses = this.state.roleBonuses || {};
+    const activeExpeditions = this.expeditions.filter(e => e.status === “active”);
+    for (const exp of activeExpeditions) {
+      if (tick >= exp.returnsAtTick) {
+        const result = resolveExpedition(exp);
+        if (result.ok) {
+          exp.status = “success”;
+          // Scale reward by role bonuses
+          const rewardMult = roleBonuses.expeditionRewardMult || 1;
+          const reward = result.reward || {};
+          for (const [k, v] of Object.entries(reward)) {
+            const scaled = Math.round(Number(v) * rewardMult);
+            if (k === “skillPoints”) {
+              // give to all players equally
+              for (const p of this.players.values()) {
+                getPlayerProgress(p.id).then(prog => {
+                  grantSkillPoints(prog, scaled);
+                  return savePlayerProgress(p.id, prog);
+                }).catch(() => {});
+              }
+            } else if (k === “prestigeShards”) {
+              for (const p of this.players.values()) {
+                getPlayerProgress(p.id).then(prog => {
+                  prog.prestigeShards = (prog.prestigeShards || 0) + scaled;
+                  return savePlayerProgress(p.id, prog);
+                }).catch(() => {});
+              }
+            } else {
+              this.state.resources[k] = (this.state.resources[k] || 0) + scaled;
+            }
+          }
+          exp.resolvedReward = reward;
+          const rewardStr = Object.entries(reward).map(([k, v]) => `+${Math.round(Number(v) * rewardMult)} ${k}`).join(“, “);
+          this.broadcast({ type: “notification”, severity: “success”, message: `🗺️ Expedition zurück: ${exp.type} — ${rewardStr}` });
+        } else {
+          exp.status = “failed”;
+          this.broadcast({ type: “notification”, severity: “warning”, message: `💀 Expedition gescheitert: ${exp.type}` });
+        }
+      }
+    }
+    // Clean up old resolved expeditions (keep last 10)
+    this.expeditions = this.expeditions.filter(e => e.status === “active” || e.status === “success” || e.status === “failed”).slice(-20);
+
+    // Track crisis survived for daily quests
+    if (this.state._prevHadCrisis && !this.state.activeEvent) {
+      this.dailyStats.dailyCrisesSurvived = (this.dailyStats.dailyCrisesSurvived || 0) + 1;
+    }
+    this.state._prevHadCrisis = !!this.state.activeEvent;
 
     // small “always something happens”: if resources increased, UI can pulse; client already does
     // server sends tick notes for notifications (starvation/blackout_pressure etc)
@@ -984,6 +1169,12 @@ async function handleMessage(ws, data) {
     case "challenge_resolve":
       return handleChallengeResolve(ws, data);
 
+    case "send_expedition":
+      return handleSendExpedition(ws, data);
+
+    case "claim_daily_quest":
+      return handleClaimDailyQuest(ws, data);
+
     default:
       safeSend(ws, { type: "error", message: "Unbekannter Nachrichtentyp: " + type });
       return;
@@ -1174,6 +1365,9 @@ async function handleJoinLobby(ws, data) {
       seeded.activeEvent = snap.activeEvent || seeded.activeEvent;
       seeded.special = snap.special || seeded.special;
       seeded.specialBuff = snap.specialBuff || seeded.specialBuff;
+      seeded._expeditions = snap._expeditions || [];
+      seeded._dailyQuests = snap._dailyQuests || null;
+      seeded._dailyStats = snap._dailyStats || null;
 
       lobby = new Lobby(lobbyId, seeded);
       lobby.createdAt = snap.createdAt || lobby.createdAt;
@@ -1369,11 +1563,37 @@ async function handlePlaceBuilding(ws, data) {
   // progress reward (dopamin)
   const prog = await getPlayerProgress(ws.playerId);
   prog.lifetime.buildingsPlaced += 1;
-  // SP gibt es nicht fürs Bauen (sonst farmbar) – nur über Challenges/Meilensteine
   await savePlayerProgress(ws.playerId, prog);
 
+  lobby.dailyStats.dailyBuilds = (lobby.dailyStats.dailyBuilds || 0) + 1;
 
-  lobby.broadcast({ type: "notification", severity: "success", message: `🏗️ Gebäude platziert: ${buildingId}` });
+  // Hot streak tracking
+  const curTick = lobby.state.tick;
+  lobby._recentBuilds = (lobby._recentBuilds || []).filter(t => t > curTick - 60);
+  lobby._recentBuilds.push(curTick);
+  if (lobby._recentBuilds.length >= 5 && !(lobby.state.specialBuff?.endsAtTick > curTick)) {
+    const streakDur = 25;
+    lobby.state.specialBuff = { endsAtTick: curTick + streakDur, prodMult: 1.30 };
+    lobby.broadcast({ type: "hot_streak", message: "🔥 TEAM AUF FEUER! 5 schnelle Bauten → +30% für 25 Ticks!" });
+    lobby._recentBuilds = [];
+  }
+
+  // Critical Build: 15% chance
+  const isCritical = Math.random() < 0.15;
+  const playerName = lobby.players.get(ws.playerId)?.name || "Jemand";
+  if (isCritical) {
+    const eraIdx = eraIndexById(lobby.state.era);
+    const critBonus = {
+      energie: Math.floor(40 + eraIdx * 25),
+      nahrung: Math.floor(25 + eraIdx * 15),
+    };
+    for (const [k, v] of Object.entries(critBonus)) {
+      lobby.state.resources[k] = (lobby.state.resources[k] || 0) + v;
+    }
+    lobby.broadcast({ type: "critical_build", buildingId, critBonus, playerId: ws.playerId, playerName });
+  } else {
+    lobby.broadcast({ type: "player_action", action: "build", buildingId, playerId: ws.playerId, playerName });
+  }
 
   await saveLobbySnapshot(lobby.id, lobby);
   await lobby.broadcastState();
@@ -1398,10 +1618,11 @@ async function handleUpgradeBuilding(ws, data) {
 
   const prog = await getPlayerProgress(ws.playerId);
   prog.lifetime.buildingsUpgraded += 1;
-  // SP gibt es nicht fürs Upgraden (sonst farmbar) – nur über Challenges/Meilensteine
   await savePlayerProgress(ws.playerId, prog);
 
-
+  lobby.dailyStats.dailyUpgrades = (lobby.dailyStats.dailyUpgrades || 0) + 1;
+  const upgrPlayerName = lobby.players.get(ws.playerId)?.name || "Jemand";
+  lobby.broadcast({ type: "player_action", action: "upgrade", level: res.newLevel, playerId: ws.playerId, playerName: upgrPlayerName });
   lobby.broadcast({ type: "notification", severity: "success", message: `⬆️ Upgrade erfolgreich (Level ${res.newLevel})` });
 
   await saveLobbySnapshot(lobby.id, lobby);
@@ -1680,6 +1901,76 @@ async function handleSkillUnlock(ws, data) {
   if (lr.ok) {
     await lr.lobby.broadcastState();
   }
+}
+
+// =====================================
+// Expedition handlers
+// =====================================
+async function handleSendExpedition(ws, data) {
+  const lr = requireLobby(ws);
+  if (!lr.ok) return safeSend(ws, { type: "error", message: lr.err });
+  const lobby = lr.lobby;
+
+  const typeId = String(data.expeditionType || "");
+  if (!typeId) return safeSend(ws, { type: "error", message: "expeditionType fehlt" });
+
+  const eraIdx = eraIndexById(lobby.state.era);
+  const roleBonuses = lobby.state.roleBonuses || {};
+  const available = getAvailableExpeditions(eraIdx, roleBonuses.hasTrader || false);
+  const cfg = available.find(e => e.id === typeId);
+  if (!cfg) return safeSend(ws, { type: "notification", severity: "warning", message: "Diese Expedition ist noch nicht verfügbar." });
+
+  // Max 3 active expeditions at once
+  const active = lobby.expeditions.filter(e => e.status === "active");
+  if (active.length >= 3) {
+    return safeSend(ws, { type: "notification", severity: "warning", message: "Maximal 3 gleichzeitige Expeditionen." });
+  }
+
+  const pioneerBonus = roleBonuses.expeditionDurationMult ? (1 / roleBonuses.expeditionDurationMult) : 1;
+  const exp = createExpedition(typeId, ws.playerId, lobby.state.tick, pioneerBonus);
+  if (!exp) return safeSend(ws, { type: "error", message: "Expedition konnte nicht erstellt werden." });
+
+  lobby.expeditions.push(exp);
+  lobby.dailyStats.dailyExpeditions = (lobby.dailyStats.dailyExpeditions || 0) + 1;
+
+  lobby.broadcast({
+    type: "notification",
+    severity: "info",
+    message: `🗺️ Expedition gestartet: ${cfg.name} (kehrt in ~${exp.returnsAtTick - lobby.state.tick} Ticks zurück)`,
+  });
+
+  await lobby.broadcastState();
+}
+
+// =====================================
+// Daily quest claim handler
+// =====================================
+async function handleClaimDailyQuest(ws, data) {
+  const lr = requireLobby(ws);
+  if (!lr.ok) return safeSend(ws, { type: "error", message: lr.err });
+  const lobby = lr.lobby;
+
+  const questId = String(data.questId || "");
+  const quest = lobby.dailyQuests.find(q => q.id === questId);
+  if (!quest) return safeSend(ws, { type: "notification", severity: "warning", message: "Quest nicht gefunden." });
+  if (!quest.completed) return safeSend(ws, { type: "notification", severity: "warning", message: "Quest noch nicht abgeschlossen." });
+  if (quest.claimed) return safeSend(ws, { type: "notification", severity: "info", message: "Quest bereits eingelöst." });
+
+  quest.claimed = true;
+
+  const prog = await getPlayerProgress(ws.playerId);
+  const reward = quest.reward || {};
+  if (reward.skillPoints) grantSkillPoints(prog, reward.skillPoints);
+  if (reward.prestigeShards) prog.prestigeShards = (prog.prestigeShards || 0) + reward.prestigeShards;
+  await savePlayerProgress(ws.playerId, prog);
+
+  lobby.broadcast({
+    type: "notification",
+    severity: "success",
+    message: `🎯 Tagesquest abgeschlossen: ${quest.label} (+${reward.skillPoints || 0} SP${reward.prestigeShards ? ", +" + reward.prestigeShards + " Shards" : ""})`,
+  });
+
+  await lobby.broadcastState();
 }
 
 // =====================================
