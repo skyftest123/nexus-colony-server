@@ -1,4 +1,4 @@
-
+﻿
 // src/db.js
 // Redis helper for Render Key Value (uses process.env.REDIS_URL)
 // CommonJS (passt zu deinem nexus_server.js mit require)
@@ -72,7 +72,7 @@ async function setJSON(key, obj, ttlSeconds = null) {
   return await set(key, JSON.stringify(obj), ttlSeconds);
 }
 
-// ---------- List helpers (für “laufende Colonies”) ----------
+// ---------- List helpers (für "laufende Colonies") ----------
 async function sadd(setKey, member) {
   await initRedis();
   if (!redis) {

@@ -1,4 +1,4 @@
-// src/map.js
+﻿// src/map.js
 // Server-side placement + map rules (grid, blocked paths, building instances)
 //
 // This module is intentionally data-driven:
@@ -141,7 +141,7 @@ function upgradeInstance(map, instanceId) {
 }
 
 /**
- * Pick a random buildable cell (used if client doesn’t provide x,y yet)
+ * Pick a random buildable cell (used if client doesn't provide x,y yet)
  */
 function pickRandomBuildableCell(map, buildingDef) {
   const w = buildingDef?.footprint?.w || 1;

@@ -1,4 +1,4 @@
-// src/challenges.js
+﻿// src/challenges.js
 // Server-authoritative challenge manager for build/upgrade/demolish.
 // - Prevent "cancel -> free build" by requiring a resolved challenge.
 // - Challenges expire; server can apply penalties (resource loss) if needed.
@@ -80,7 +80,7 @@ function isExpired(gameState, ch) {
  * IMPORTANT: server still decides pass/fail using difficulty and reported score.
  *
  * result: { score:number, success?:boolean, meta?:any }
- * policy: define thresholds so it’s not too fast/too slow.
+ * policy: define thresholds so it's not too fast/too slow.
  */
 function evaluateResult(ch, result) {
   const score = Number(result?.score || 0);

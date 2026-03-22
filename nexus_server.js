@@ -1,4 +1,4 @@
-// nexus_server.js
+﻿// nexus_server.js
 // Kompletter Server (WebSocket + HTTP) für Nexus Colony
 // - Lobbies (create/join/reconnect)
 // - Tick loop (schneller, default 1500ms; via TICK_MS env anpassbar)
@@ -520,7 +520,7 @@ async function loadLobbySnapshot(lobbyId) {
     if (data?.state?.prestige) {
       data.state.prestige = data.state.prestige;
     }
-    // Ensure config stays current (don’t persist config)
+    // Ensure config stays current (don't persist config)
     if (data?.state) {
       data.state.config = CONFIG;
     }
@@ -928,18 +928,18 @@ class Lobby {
     // Auto-resolve completed expeditions
     const tick = this.state.tick;
     const roleBonuses = this.state.roleBonuses || {};
-    const activeExpeditions = this.expeditions.filter(e => e.status === “active”);
+    const activeExpeditions = this.expeditions.filter(e => e.status === "active");
     for (const exp of activeExpeditions) {
       if (tick >= exp.returnsAtTick) {
         const result = resolveExpedition(exp);
         if (result.ok) {
-          exp.status = “success”;
+          exp.status = "success";
           // Scale reward by role bonuses
           const rewardMult = roleBonuses.expeditionRewardMult || 1;
           const reward = result.reward || {};
           for (const [k, v] of Object.entries(reward)) {
             const scaled = Math.round(Number(v) * rewardMult);
-            if (k === “skillPoints”) {
+            if (k === "skillPoints") {
               // give to all players equally
               for (const p of this.players.values()) {
                 getPlayerProgress(p.id).then(prog => {
@@ -947,7 +947,7 @@ class Lobby {
                   return savePlayerProgress(p.id, prog);
                 }).catch(() => {});
               }
-            } else if (k === “prestigeShards”) {
+            } else if (k === "prestigeShards") {
               for (const p of this.players.values()) {
                 getPlayerProgress(p.id).then(prog => {
                   prog.prestigeShards = (prog.prestigeShards || 0) + scaled;
@@ -959,16 +959,16 @@ class Lobby {
             }
           }
           exp.resolvedReward = reward;
-          const rewardStr = Object.entries(reward).map(([k, v]) => `+${Math.round(Number(v) * rewardMult)} ${k}`).join(“, “);
-          this.broadcast({ type: “notification”, severity: “success”, message: `🗺️ Expedition zurück: ${exp.type} — ${rewardStr}` });
+          const rewardStr = Object.entries(reward).map(([k, v]) => `+${Math.round(Number(v) * rewardMult)} ${k}`).join(", ");
+          this.broadcast({ type: "notification", severity: "success", message: `🗺️ Expedition zurück: ${exp.type} — ${rewardStr}` });
         } else {
-          exp.status = “failed”;
-          this.broadcast({ type: “notification”, severity: “warning”, message: `💀 Expedition gescheitert: ${exp.type}` });
+          exp.status = "failed";
+          this.broadcast({ type: "notification", severity: "warning", message: `💀 Expedition gescheitert: ${exp.type}` });
         }
       }
     }
     // Clean up old resolved expeditions (keep last 10)
-    this.expeditions = this.expeditions.filter(e => e.status === “active” || e.status === “success” || e.status === “failed”).slice(-20);
+    this.expeditions = this.expeditions.filter(e => e.status === "active" || e.status === "success" || e.status === "failed").slice(-20);
 
     // Track crisis survived for daily quests
     if (this.state._prevHadCrisis && !this.state.activeEvent) {
@@ -976,7 +976,7 @@ class Lobby {
     }
     this.state._prevHadCrisis = !!this.state.activeEvent;
 
-    // small “always something happens”: if resources increased, UI can pulse; client already does
+    // small "always something happens": if resources increased, UI can pulse; client already does
     // server sends tick notes for notifications (starvation/blackout_pressure etc)
     if (Array.isArray(this.state.lastTickNotes) && this.state.lastTickNotes.length > 0) {
       for (const n of this.state.lastTickNotes) {
