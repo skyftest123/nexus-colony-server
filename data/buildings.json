@@ -1,123 +1,197 @@
 {
   "buildings": {
     "campfire": {
-      "name": "Lagerfeuer",
-      "icon": "🔥",
-      "era": "proto",
+      "id": "campfire", "name": "Lagerfeuer", "icon": "🔥", "era": "proto",
       "footprint": { "w": 1, "h": 1 },
-      "cost": { "energie": 0, "nahrung": 10 },
+      "cost": { "energie": 0, "nahrung": 5 },
       "produces": { "energie": 2 },
-      "visual": "fire_small",
-      "description": "Erste Energiequelle. Sichtbares Feuer."
+      "maintenance": { "nahrung": 0.1 },
+      "description": "Primitive Energiequelle. Jedes Team beginnt hier.",
+      "maxCount": 6
     },
     "hut": {
-      "name": "Hütte",
-      "icon": "🛖",
-      "era": "proto",
+      "id": "hut", "name": "Hütte", "icon": "🛖", "era": "proto",
       "footprint": { "w": 1, "h": 1 },
       "cost": { "energie": 5, "nahrung": 20 },
       "produces": { "bevoelkerung": 2 },
-      "visual": "hut",
-      "description": "Primitive Unterkunft."
+      "description": "Primitive Unterkunft. Basis für alles."
     },
     "farm": {
-      "name": "Farm",
-      "icon": "🌾",
-      "era": "proto",
+      "id": "farm", "name": "Farm", "icon": "🌾", "era": "proto",
       "footprint": { "w": 2, "h": 2 },
-      "cost": { "energie": 20, "nahrung": 0 },
+      "cost": { "energie": 20 },
       "produces": { "nahrung": 8 },
-      "visual": "farm_fields",
-      "description": "Produziert Nahrung mit sichtbaren Feldern."
+      "maintenance": { "energie": 0.2 },
+      "description": "Produziert Nahrung. Je mehr Farmen, desto mehr Wachstum."
+    },
+    "well": {
+      "id": "well", "name": "Brunnen", "icon": "🪣", "era": "proto",
+      "footprint": { "w": 1, "h": 1 },
+      "cost": { "energie": 8, "nahrung": 10 },
+      "produces": { "stabilitaet": 3 },
+      "description": "Sauberes Wasser stabilisiert die Kolonie.",
+      "maxCount": 4
     },
     "house": {
-      "name": "Haus",
-      "icon": "🏠",
-      "era": "ancient",
+      "id": "house", "name": "Haus", "icon": "🏠", "era": "ancient",
       "footprint": { "w": 1, "h": 1 },
       "cost": { "energie": 25, "nahrung": 30 },
       "produces": { "bevoelkerung": 4 },
-      "visual": "stone_house",
-      "description": "Stabile Wohnhäuser."
+      "description": "Stabile Wohnhäuser. Mehr Platz als eine Hütte."
+    },
+    "market": {
+      "id": "market", "name": "Marktplatz", "icon": "🏪", "era": "ancient",
+      "footprint": { "w": 2, "h": 1 },
+      "cost": { "energie": 30, "nahrung": 25 },
+      "produces": { "energie": 1, "nahrung": 2, "forschung": 1, "stabilitaet": 1 },
+      "maintenance": { "energie": 0.3 },
+      "description": "Handel bringt alles — wenig von allem, aber gleichmäßig.",
+      "maxCount": 3
+    },
+    "barracks": {
+      "id": "barracks", "name": "Kaserne", "icon": "⚔️", "era": "ancient",
+      "footprint": { "w": 2, "h": 1 },
+      "cost": { "energie": 35, "nahrung": 40 },
+      "produces": { "stabilitaet": 5 },
+      "maintenance": { "nahrung": 0.5, "energie": 0.2 },
+      "description": "Soldaten schützen die Kolonie. Reduziert Krisen-Schaden um 10%.",
+      "special": "crisis_resist_flat",
+      "crisisResist": 0.1
     },
     "workshop": {
-      "name": "Werkstatt",
-      "icon": "⚒️",
-      "era": "medieval",
+      "id": "workshop", "name": "Werkstatt", "icon": "⚒️", "era": "medieval",
       "footprint": { "w": 2, "h": 1 },
       "cost": { "energie": 40, "nahrung": 30 },
-      "produces": { "energie": -2, "research": 2 },
-      "visual": "workshop_smoke",
-      "description": "Erste spezialisierte Produktion."
+      "produces": { "energie": -2, "forschung": 2 },
+      "description": "Spezialisierte Werkzeugproduktion. Verbraucht Energie."
     },
     "watchtower": {
-      "name": "Wachturm",
-      "icon": "🗼",
-      "era": "medieval",
+      "id": "watchtower", "name": "Wachturm", "icon": "🗼", "era": "medieval",
       "footprint": { "w": 1, "h": 1 },
       "cost": { "energie": 30, "nahrung": 20 },
-      "produces": { "stability": 3 },
-      "visual": "tower",
-      "description": "Schützt vor Gegnern auf Wegen."
+      "produces": { "stabilitaet": 3 },
+      "description": "Überwacht das Land. Verkürzt Krisenzeiten."
+    },
+    "mill": {
+      "id": "mill", "name": "Mühle", "icon": "🌀", "era": "medieval",
+      "footprint": { "w": 1, "h": 1 },
+      "cost": { "energie": 35, "nahrung": 20 },
+      "produces": { "nahrung": 5 },
+      "maintenance": { "energie": 0.15 },
+      "description": "Verarbeitet Getreide effizienter. Ergänzt Farmen perfekt.",
+      "maxCount": 4
+    },
+    "library": {
+      "id": "library", "name": "Bibliothek", "icon": "📚", "era": "medieval",
+      "footprint": { "w": 1, "h": 1 },
+      "cost": { "energie": 45, "nahrung": 30 },
+      "produces": { "forschung": 3 },
+      "maintenance": { "energie": 0.2 },
+      "description": "Wissen ist Macht. Günstigere Forschungsquelle.",
+      "maxCount": 3
+    },
+    "tavern": {
+      "id": "tavern", "name": "Taverne", "icon": "🍺", "era": "medieval",
+      "footprint": { "w": 1, "h": 1 },
+      "cost": { "energie": 25, "nahrung": 50 },
+      "produces": { "stabilitaet": 4 },
+      "maintenance": { "nahrung": 0.6 },
+      "description": "Glückliche Menschen sind loyale Menschen. Hohe Stabilität.",
+      "maxCount": 3
+    },
+    "hospital": {
+      "id": "hospital", "name": "Hospital", "icon": "🏥", "era": "medieval",
+      "footprint": { "w": 2, "h": 1 },
+      "cost": { "energie": 60, "nahrung": 40, "forschung": 10 },
+      "produces": { "bevoelkerung": 2, "stabilitaet": 2 },
+      "maintenance": { "energie": 0.4, "nahrung": 0.3 },
+      "description": "Reduziert Sterblichkeit. Bevölkerung wächst schneller.",
+      "special": "pop_growth_bonus",
+      "maxCount": 2
     },
     "factory": {
-      "name": "Fabrik",
-      "icon": "🏭",
-      "era": "industrial",
+      "id": "factory", "name": "Fabrik", "icon": "🏭", "era": "industrial",
       "footprint": { "w": 3, "h": 2 },
       "cost": { "energie": 120, "nahrung": 80 },
-      "produces": { "energie": -5, "research": 8 },
-      "visual": "factory_smoke",
-      "description": "Hohe Produktion, sichtbare Umweltbelastung."
+      "produces": { "energie": -5, "forschung": 8 },
+      "maintenance": { "energie": 0.8 },
+      "description": "Massiver Forschungsschub. Verbraucht aber Energie."
     },
     "powerplant": {
-      "name": "Kraftwerk",
-      "icon": "⚡",
-      "era": "industrial",
+      "id": "powerplant", "name": "Kraftwerk", "icon": "⚡", "era": "industrial",
       "footprint": { "w": 2, "h": 2 },
-      "cost": { "energie": 0, "nahrung": 100 },
+      "cost": { "nahrung": 100 },
       "produces": { "energie": 20 },
-      "visual": "powerplant",
-      "description": "Massive Energiequelle."
+      "maintenance": { "nahrung": 0.5 },
+      "description": "Massive Energiequelle. Unverzichtbar im Industriezeitalter."
+    },
+    "coal_mine": {
+      "id": "coal_mine", "name": "Kohlemine", "icon": "⛏️", "era": "industrial",
+      "footprint": { "w": 2, "h": 1 },
+      "cost": { "energie": 80, "nahrung": 60 },
+      "produces": { "energie": 12, "stabilitaet": -1 },
+      "maintenance": { "nahrung": 0.3 },
+      "description": "Billige Energie, aber Umweltverschmutzung senkt Stabilität.",
+      "maxCount": 3
+    },
+    "solar_panel": {
+      "id": "solar_panel", "name": "Solarpark", "icon": "☀️", "era": "industrial",
+      "footprint": { "w": 2, "h": 1 },
+      "cost": { "energie": 90, "forschung": 30 },
+      "produces": { "energie": 8 },
+      "description": "Wartungsfreie Energie. Gut für nachhaltigen Ausbau.",
+      "maxCount": 4
+    },
+    "city_hall": {
+      "id": "city_hall", "name": "Rathaus", "icon": "🏛️", "era": "industrial",
+      "footprint": { "w": 2, "h": 2 },
+      "cost": { "energie": 150, "nahrung": 100, "forschung": 50 },
+      "produces": { "stabilitaet": 6 },
+      "special": "maintenance_reduction",
+      "maintenanceReduction": 0.15,
+      "description": "Zentrale Verwaltung. Reduziert Wartungskosten aller Gebäude um 15%.",
+      "maxCount": 1
     },
     "habitat": {
-      "name": "Habitat",
-      "icon": "🏢",
-      "era": "futuristic",
+      "id": "habitat", "name": "Habitat", "icon": "🏢", "era": "futuristic",
       "footprint": { "w": 2, "h": 2 },
       "cost": { "energie": 200, "nahrung": 150 },
       "produces": { "bevoelkerung": 12 },
-      "visual": "habitat_glass",
-      "description": "Vertikale Wohnkomplexe."
+      "maintenance": { "energie": 1.0 },
+      "description": "Vertikale Wohnkomplexe. Massenunterbringung."
     },
     "research_lab": {
-      "name": "Forschungslabor",
-      "icon": "🧪",
-      "era": "antique",
+      "id": "research_lab", "name": "Forschungslabor", "icon": "🧪", "era": "futuristic",
       "footprint": { "w": 2, "h": 2 },
-      "cost": {
-        "energie": 40,
-        "nahrung": 20,
-        "forschung": 0
-      },
-      "produces": {
-        "forschung": 2.5
-      },
-      "maintenance": {
-        "energie": 0.3
-      },
-      "tags": ["science", "lab"],
-      "description": "Ermöglicht strukturierte Forschung und technologische Durchbrüche."
+      "cost": { "energie": 160, "nahrung": 80, "forschung": 50 },
+      "produces": { "forschung": 10 },
+      "maintenance": { "energie": 1.2 },
+      "description": "Spitzenforschung. Pflichtgebäude für die letzte Epoche."
+    },
+    "quantum_computer": {
+      "id": "quantum_computer", "name": "Quantenrechner", "icon": "🖥️", "era": "futuristic",
+      "footprint": { "w": 2, "h": 1 },
+      "cost": { "energie": 250, "forschung": 200 },
+      "produces": { "forschung": 15, "energie": -8 },
+      "description": "Berechnet in Sekunden, was Menschen Jahrhunderte dauern würde.",
+      "maxCount": 2
     },
     "fusion_reactor": {
-      "name": "Fusionsreaktor",
-      "icon": "🔆",
-      "era": "futuristic",
+      "id": "fusion_reactor", "name": "Fusionsreaktor", "icon": "🔆", "era": "futuristic",
       "footprint": { "w": 3, "h": 3 },
-      "cost": { "energie": 0, "nahrung": 300 },
+      "cost": { "nahrung": 300, "forschung": 150 },
       "produces": { "energie": 60 },
-      "visual": "fusion_core",
-      "description": "Ultimative Energiequelle mit starken Effekten."
+      "maintenance": { "forschung": 0.5 },
+      "description": "Ultimative Energiequelle. Saubere, unendliche Kraft."
     },
+    "orbital_station": {
+      "id": "orbital_station", "name": "Orbitalstation", "icon": "🛸", "era": "futuristic",
+      "footprint": { "w": 3, "h": 2 },
+      "cost": { "energie": 500, "nahrung": 300, "forschung": 400 },
+      "produces": { "energie": 20, "nahrung": 10, "forschung": 20, "bevoelkerung": 5, "stabilitaet": 5 },
+      "maintenance": { "energie": 2.0, "forschung": 0.5 },
+      "description": "Der Gipfel der Zivilisation. Produziert alles.",
+      "maxCount": 1
+    }
   }
 }
