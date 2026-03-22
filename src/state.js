@@ -372,44 +372,71 @@ function computeProductionAndMaintenance(state, dt) {
   
   // Event starten (zufällig)
   if (!state.activeEvent) {
-    const EVENT_CHANCE_PER_TICK = 0.015; // ~1.5 %
+    const EVENT_CHANCE_PER_TICK = 0.018;
     if (Math.random() < EVENT_CHANCE_PER_TICK) {
-      const events = ["blackout", "food_crisis", "unrest"];
+      const diff = state.difficulty || 1;
+      // More crises available at higher difficulty
+      const events = diff < 1.3
+        ? ["blackout", "food_crisis", "unrest"]
+        : diff < 1.6
+        ? ["blackout", "food_crisis", "unrest", "disease", "drought"]
+        : ["blackout", "food_crisis", "unrest", "disease", "drought", "earthquake"];
       const type = events[Math.floor(Math.random() * events.length)];
-  
+      const duration = { earthquake: 8, disease: 30, drought: 25 }[type] || 20;
+
       state.activeEvent = {
         type,
-        endsAtTick: tick + 20, // ca. 30 Sekunden bei 1.5s Tick
+        endsAtTick: tick + duration,
+        startTick: tick,
       };
-  
-      state.lastTickNotes.push({
-        type: "event",
-        msg: `⚠️ Krise: ${type}`,
-      });
+
+      state.lastTickNotes.push({ type: "event", msg: `⚠️ Krise: ${type}` });
     }
   }
-  
+
   // Event anwenden
   if (state.activeEvent) {
-    switch (state.activeEvent.type) {
+    const ev = state.activeEvent;
+    switch (ev.type) {
       case "blackout":
-        state.resources.energie -= 0.6 * shopEventResist * eventLossMult * dt;
+        state.resources.energie -= 0.7 * shopEventResist * eventLossMult * dt;
         break;
-
       case "food_crisis":
-        state.resources.nahrung -= 0.5 * shopEventResist * eventLossMult * dt;
+        state.resources.nahrung -= 0.6 * shopEventResist * eventLossMult * dt;
         break;
-
       case "unrest":
-        state.resources.stabilitaet -= 0.4 * shopEventResist * eventLossMult * dt;
+        state.resources.stabilitaet -= 0.5 * shopEventResist * eventLossMult * dt;
+        break;
+      case "disease":
+        // Bevölkerungswachstum stoppt + langsamer Rückgang + Stabilitätsabfall
+        state.resources.stabilitaet -= 0.25 * shopEventResist * eventLossMult * dt;
+        if (Math.random() < 0.004 * dt) {
+          const loss = Math.max(1, Math.floor((state.resources.bevoelkerung || 0) * 0.005));
+          state.resources.bevoelkerung = Math.max(1, (state.resources.bevoelkerung || 1) - loss);
+        }
+        break;
+      case "drought":
+        // Nahrungsproduktion stark geschwächt + moderate Stabilitätssenkung
+        state.resources.nahrung -= 0.35 * shopEventResist * eventLossMult * dt;
+        state.resources.stabilitaet -= 0.15 * shopEventResist * eventLossMult * dt;
+        break;
+      case "earthquake":
+        // Einmalig: alle Gebäude beschädigen + Stabilitätssturz
+        if (ev.startTick === tick - 1) {
+          for (const inst of (state.map?.instances || [])) {
+            const dmg = 25 + Math.floor(Math.random() * 40);
+            inst.condition = Math.max(5, (inst.condition ?? 100) - dmg);
+          }
+          state.resources.stabilitaet -= 18 * shopEventResist * eventLossMult;
+          state.lastTickNotes.push({ type: "earthquake_hit", msg: "🌍 Erdbeben! Alle Gebäude beschädigt!" });
+        }
         break;
     }
-  
-    if (tick >= state.activeEvent.endsAtTick) {
-      state.lastTickNotes.push({
-        type: "event_end",
-        msg: `✅ Krise beendet: ${state.activeEvent.type}`,
-      });
+
+    if (tick >= ev.endsAtTick) {
+      state.lastTickNotes.push({ type: "event_end", msg: `✅ Krise beendet: ${ev.type}` });
+      // Crisis survived bonus: small stability recovery
+      state.resources.stabilitaet = clamp((state.resources.stabilitaet || 0) + 4, 0, 100);
       state.activeEvent = null;
     }
   }
