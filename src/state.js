@@ -161,6 +161,8 @@ function normalizeBuildings(raw) {
       maxCount: Number.isFinite(b.maxCount) ? b.maxCount : null,
       buildTimeTicks: Number.isFinite(b.buildTimeTicks) ? b.buildTimeTicks : 0,
       type: String(b.type || "production"),
+      attackDamage: Number.isFinite(b.attackDamage) ? b.attackDamage : 0,
+      attackRange: Number.isFinite(b.attackRange) ? b.attackRange : 0,
     };
   }
   return out;
@@ -647,6 +649,89 @@ function computeProductionAndMaintenance(state, dt) {
   state.difficulty = 1 + Math.min(1.0, t / 1200) * 0.6;
 }
 
+// ─── GEGNER-SYSTEM ─────────────────────────────────────────────────────────
+function tickEnemies(state, dt) {
+  const tick = state.tick;
+  const mapW = state.map.width || 12;
+  const mapH = state.map.height || 8;
+  const midY = Math.floor(mapH / 2);
+  const diff = Number(state.difficulty || 1);
+
+  // Spawn-Cooldown (alle 25 Ticks eine Welle, früher bei höherer Schwierigkeit)
+  const spawnInterval = Math.max(8, Math.round(25 - diff * 5));
+  state._enemySpawnCooldown = (state._enemySpawnCooldown || 0) - 1;
+
+  if (state._enemySpawnCooldown <= 0 && tick > 5) {
+    state._enemySpawnCooldown = spawnInterval;
+    const waveSize = Math.min(5, Math.ceil(1 + diff * 0.8));
+    for (let i = 0; i < waveSize; i++) {
+      const hp = Math.round(20 + diff * 15);
+      state.enemies.push({
+        id: `e${tick}_${i}`,
+        progress: -(i * 2.5),   // negativ = noch nicht auf der Karte
+        hp,
+        maxHp: hp,
+        type: diff > 1.5 ? (i === 0 ? 'boss' : 'raider') : 'raider',
+      });
+    }
+    state.lastTickNotes.push({ type: 'enemy_wave', msg: `⚔️ Angriffswelle naht! (${waveSize} Angreifer)` });
+  }
+
+  // Defense-Gebäude finden
+  const instances = state.map?.instances || [];
+  const cfg = state.config;
+  const defBuildings = instances.filter(inst => {
+    const b = cfg.buildings?.[inst.type];
+    return b?.attackDamage > 0;
+  });
+
+  const toRemove = new Set();
+
+  for (const enemy of (state.enemies || [])) {
+    // Bewegung: speed Zellen pro Sekunde
+    const speed = enemy.type === 'boss' ? 0.3 : 0.5;
+    enemy.progress = (enemy.progress || 0) + speed * dt;
+
+    // Position
+    const px = enemy.progress;
+    const py = midY;
+
+    // Verteidigungsgebäude greifen an
+    for (const inst of defBuildings) {
+      const b = cfg.buildings[inst.type];
+      if (!b) continue;
+      const range = b.attackRange || 2;
+      const dmg = b.attackDamage || 5;
+      const cond = clamp((inst.condition ?? 100) / 100, 0.1, 1);
+      const cx = inst.x + inst.w / 2;
+      const cy = inst.y + inst.h / 2;
+      const dist = Math.sqrt(Math.pow(cx - px, 2) + Math.pow(cy - py, 2));
+      if (dist <= range) {
+        enemy.hp -= dmg * cond * dt;
+      }
+    }
+
+    // Gegner getötet
+    if (enemy.hp <= 0) {
+      toRemove.add(enemy.id);
+      // Kleine Belohnung
+      state.resources.forschung = (state.resources.forschung || 0) + (enemy.type === 'boss' ? 8 : 3);
+      state.lastTickNotes.push({ type: 'enemy_killed', msg: `💀 Angreifer besiegt! +${enemy.type === 'boss' ? 8 : 3} Forschung` });
+      continue;
+    }
+
+    // Gegner erreicht das Ende
+    if (px >= mapW) {
+      toRemove.add(enemy.id);
+      const stabDmg = enemy.type === 'boss' ? 12 : 5;
+      state.resources.stabilitaet = clamp((state.resources.stabilitaet || 0) - stabDmg, 0, 100);
+      state.lastTickNotes.push({ type: 'enemy_breach', msg: `🔥 Angreifer durchgebrochen! Stabilität -${stabDmg}` });
+    }
+  }
+
+  state.enemies = (state.enemies || []).filter(e => !toRemove.has(e.id));
+}
+
 function tick(state, dt = 1) {
   // dt ist "Sekunden seit letztem Tick"
   if (!Number.isFinite(dt) || dt <= 0) dt = 1;
@@ -654,6 +739,7 @@ function tick(state, dt = 1) {
   state.tick += 1;
   state.lastTickNotes = [];
   computeProductionAndMaintenance(state, dt);
+  tickEnemies(state, dt);
   return state;
 }
 
@@ -755,6 +841,10 @@ function createInitialState(opts = {}) {
     _starveSeconds: 0,
     _blackoutNoteSeconds: 0,
     _popGrowthCarry: 0,
+
+    // enemy system
+    enemies: [],
+    _enemySpawnCooldown: 15,
   };
 
   // NOTE: Kein Prestige-StartBoost hier anwenden.

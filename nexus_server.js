@@ -811,6 +811,8 @@ class Lobby {
             special: stateCopy.special,
             specialBuff: stateCopy.specialBuff,
             roleBonuses: this.state.roleBonuses || {},
+            enemies: stateCopy.enemies || [],
+            lastTickNotes: stateCopy.lastTickNotes || [],
           },
           players: this.getPlayersList(),
           progress: prog,

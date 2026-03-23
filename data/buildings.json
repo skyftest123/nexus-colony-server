@@ -32,6 +32,16 @@
       "description": "Sauberes Wasser stabilisiert die Kolonie.",
       "maxCount": 3
     },
+    "palisade": {
+      "id": "palisade", "name": "Palisade", "icon": "🪵", "era": "proto",
+      "footprint": { "w": 1, "h": 1 },
+      "cost": { "nahrung": 12 },
+      "produces": { "stabilitaet": 0.3 },
+      "attackDamage": 4, "attackRange": 1.5,
+      "description": "Einfache Holzbarriere. Verlangsamt und schadet Angreifern in der Nähe.",
+      "maxCount": 8,
+      "type": "defense"
+    },
     "house": {
       "id": "house", "name": "Haus", "icon": "🏠", "era": "ancient",
       "footprint": { "w": 1, "h": 1 },
@@ -57,6 +67,17 @@
       "description": "Soldaten schützen die Kolonie. Reduziert Krisen-Schaden um 10%.",
       "special": "crisis_resist_flat",
       "crisisResist": 0.1
+    },
+    "archer_tower": {
+      "id": "archer_tower", "name": "Bogenschützenturm", "icon": "🏹", "era": "ancient",
+      "footprint": { "w": 1, "h": 1 },
+      "cost": { "energie": 45, "nahrung": 35 },
+      "produces": { "stabilitaet": 0.5 },
+      "maintenance": { "nahrung": 0.3 },
+      "attackDamage": 10, "attackRange": 3.0,
+      "description": "Bogenschützen beschießen Feinde mit hoher Reichweite.",
+      "maxCount": 4,
+      "type": "defense"
     },
     "workshop": {
       "id": "workshop", "name": "Werkstatt", "icon": "⚒️", "era": "medieval",
@@ -151,6 +172,17 @@
       "maintenanceReduction": 0.15,
       "description": "Zentrale Verwaltung. Reduziert Wartungskosten aller Gebäude um 15%.",
       "maxCount": 1
+    },
+    "cannon": {
+      "id": "cannon", "name": "Kanone", "icon": "💣", "era": "industrial",
+      "footprint": { "w": 1, "h": 1 },
+      "cost": { "energie": 120, "nahrung": 80, "forschung": 30 },
+      "produces": {},
+      "maintenance": { "energie": 0.8, "nahrung": 0.4 },
+      "attackDamage": 28, "attackRange": 4.0,
+      "description": "Schweres Geschütz. Hoher Schaden auf große Distanz.",
+      "maxCount": 2,
+      "type": "defense"
     },
     "habitat": {
       "id": "habitat", "name": "Habitat", "icon": "🏢", "era": "futuristic",
