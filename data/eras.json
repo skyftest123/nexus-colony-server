@@ -13,7 +13,7 @@
       "name": "Antike",
       "color": "#c9a24d",
       "description": "Erste Strukturen entstehen. Handel beginnt.",
-      "unlock": { "pop": 50, "food": 300, "energy": 200 },
+      "unlock": { "pop": 75, "food": 450, "energy": 300 },
       "theme": "stone"
     },
     {
@@ -21,7 +21,7 @@
       "name": "Mittelalter",
       "color": "#7a9c6a",
       "description": "Gesellschaft wächst. Spezialisierung beginnt.",
-      "unlock": { "pop": 150, "food": 800, "energy": 500, "labs": 1 },
+      "unlock": { "pop": 225, "food": 1200, "energy": 750, "labs": 1 },
       "theme": "cobble"
     },
     {
@@ -29,7 +29,7 @@
       "name": "Industriezeitalter",
       "color": "#5a6a7a",
       "description": "Maschinen übernehmen. Massenproduktion beginnt.",
-      "unlock": { "pop": 400, "food": 2000, "energy": 1500, "research": 300 },
+      "unlock": { "pop": 600, "food": 3000, "energy": 2250, "research": 450 },
       "theme": "asphalt"
     },
     {
@@ -37,7 +37,7 @@
       "name": "Futuristische Ära",
       "color": "#00d4ff",
       "description": "Technologie perfektioniert. Der Orbit ruft.",
-      "unlock": { "pop": 800, "food": 5000, "energy": 4000, "research": 1200, "stability": 70 },
+      "unlock": { "pop": 1200, "food": 7500, "energy": 6000, "research": 1800, "stability": 70 },
       "theme": "neon"
     },
     {
@@ -45,7 +45,7 @@
       "name": "Quantenzeitalter",
       "color": "#ff00ff",
       "description": "Die Grenzen der Realität verschwimmen. Transzendenz.",
-      "unlock": { "pop": 2000, "food": 15000, "energy": 12000, "research": 5000, "stability": 85, "orbitals": 1 },
+      "unlock": { "pop": 3000, "food": 22500, "energy": 18000, "research": 7500, "stability": 85, "orbitals": 1 },
       "theme": "quantum",
       "bonuses": {
         "allProduction": 1.5,

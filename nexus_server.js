@@ -32,7 +32,7 @@ const { generateDailyQuests, getDayKey, updateQuestProgress } = require("./src/d
 
 // --- Config ---
 const PORT = Number(process.env.PORT || 3000);
-const TICK_MS = Number(process.env.TICK_MS || 1500); // schneller als vorher
+const TICK_MS = Number(process.env.TICK_MS || 4000); // 4s — bewusstes Tempo
 const SNAPSHOT_EVERY_TICKS = Number(process.env.SNAPSHOT_EVERY_TICKS || 3);
 const LOBBY_TTL_SECONDS = Number(process.env.LOBBY_TTL_SECONDS || 60 * 60 * 12); // 12h
 const MAX_PLAYERS_PER_LOBBY = Number(process.env.MAX_PLAYERS_PER_LOBBY || 4);

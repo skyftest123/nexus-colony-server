@@ -505,7 +505,7 @@ function computeProductionAndMaintenance(state, dt) {
 
   // ---- Baseline: Stabilität sinkt NICHT permanent schnell.
   // Nur minimaler natürlicher Drift (pro Sekunde).
-  const STABILITY_NATURAL_DECAY_PER_SEC = 0.003; // 0.18 pro Minute
+  const STABILITY_NATURAL_DECAY_PER_SEC = 0.004; // 0.24 pro Minute
   r.stabilitaet = clamp(
     (r.stabilitaet || 0) - STABILITY_NATURAL_DECAY_PER_SEC * dt * (1 / stabilityMult),
     0,
@@ -561,7 +561,7 @@ function computeProductionAndMaintenance(state, dt) {
 
   // 0.45 pro Tick war zu hart. Wir machen daraus "pro Sekunde".
   // 0.005 => bei Pop=12: 0.06 Nahrung/Sek (~3.6/Min), Startfood 120 hält ~33 Min ohne Produktion.
-  const FOOD_USE_PER_PERSON_PER_SEC = 0.005;
+  const FOOD_USE_PER_PERSON_PER_SEC = 0.008;
   const foodUse = pop * FOOD_USE_PER_PERSON_PER_SEC * foodConsumptionMult * dt;
   r.nahrung = (r.nahrung || 0) - foodUse;
 
@@ -623,7 +623,7 @@ function computeProductionAndMaintenance(state, dt) {
   // Vorher: floor(pop*0.012) pro Tick → bei schnellen Ticks zu wild.
   // Jetzt: 0.0012 pro Sekunde => 0.12%/Sek => ~7.2%/Min (noch spürbar, aber steuerbar)
   if ((r.nahrung || 0) > 40 && (r.stabilitaet || 0) > 35) {
-    const POP_GROWTH_PER_SEC = 0.0012; // Anteil pro Sekunde
+    const POP_GROWTH_PER_SEC = 0.0007; // Anteil pro Sekunde
     const growthFloat = pop * POP_GROWTH_PER_SEC * populationGrowthMult * dt;
 
     state._popGrowthCarry = (state._popGrowthCarry || 0) + growthFloat;
@@ -736,9 +736,9 @@ function createInitialState(opts = {}) {
       resourceFlat: {},
     },
     resources: {
-      energie: 120,
-      nahrung: 120,
-      bevoelkerung: 12,
+      energie: 15,
+      nahrung: 30,
+      bevoelkerung: 8,
       forschung: 0,
       stabilitaet: 100,
     },
