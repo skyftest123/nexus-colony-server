@@ -625,7 +625,7 @@ function computeProductionAndMaintenance(state, dt) {
   // Vorher: floor(pop*0.012) pro Tick → bei schnellen Ticks zu wild.
   // Jetzt: 0.0012 pro Sekunde => 0.12%/Sek => ~7.2%/Min (noch spürbar, aber steuerbar)
   if ((r.nahrung || 0) > 40 && (r.stabilitaet || 0) > 35) {
-    const POP_GROWTH_PER_SEC = 0.0007; // Anteil pro Sekunde
+    const POP_GROWTH_PER_SEC = 0.0003; // Anteil pro Sekunde — langsamer für bessere Balance
     const growthFloat = pop * POP_GROWTH_PER_SEC * populationGrowthMult * dt;
 
     state._popGrowthCarry = (state._popGrowthCarry || 0) + growthFloat;
