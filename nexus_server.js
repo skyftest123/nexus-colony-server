@@ -795,6 +795,9 @@ class Lobby {
       this.dailyStats.currentPlayerCount = Array.from(this.players.values()).filter(pl => pl.ws && pl.ws.readyState === WebSocket.OPEN).length;
       updateQuestProgress(this.dailyQuests, this.state, this.dailyStats);
 
+      // Re-check after await — player may have disconnected during async getPlayerProgress
+      if (!p.ws || p.ws.readyState !== WebSocket.OPEN) continue;
+
       p.ws.send(
         JSON.stringify({
           type: "update_state",
