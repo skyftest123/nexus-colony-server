@@ -1180,10 +1180,34 @@ async function handleMessage(ws, data) {
     case "claim_daily_quest":
       return handleClaimDailyQuest(ws, data);
 
+    case "gamble_bonus":
+      return handleGambleBonus(ws, data);
+
     default:
       safeSend(ws, { type: "error", message: "Unbekannter Nachrichtentyp: " + type });
       return;
   }
+}
+
+async function handleGambleBonus(ws, data) {
+  const p = getPlayerByWs(ws);
+  if (!p?.lobbyId) return;
+  const lobby = lobbies.get(p.lobbyId);
+  if (!lobby?.state) return;
+
+  const outcome = String(data.outcome || "win");
+  const BONUS = {
+    jackpot: { energie: 30, nahrung: 30, forschung: 15 },
+    win:     { energie: 12, nahrung: 12, forschung: 5  },
+  };
+  const rewards = BONUS[outcome] || BONUS.win;
+  const r = lobby.state.resources;
+  if (r) {
+    r.energie    = (r.energie    || 0) + (rewards.energie    || 0);
+    r.nahrung    = (r.nahrung    || 0) + (rewards.nahrung    || 0);
+    r.forschung  = (r.forschung  || 0) + (rewards.forschung  || 0);
+  }
+  // Don't broadcastState here — will happen on next tick
 }
 
 async function handlePrestigeBuy(ws, data) {
